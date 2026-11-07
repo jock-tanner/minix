@@ -13,7 +13,7 @@
 extern pid_t _fork(void);
 extern pid_t _wait(int *);
 extern void _exit(int);
-extern void _execve(const char *path, const char ** argv, const char ** envp);
+extern int _execve(const char *path, const char ** argv, const char ** envp);
 extern int _close(int);
 
 #define	FAIL	127

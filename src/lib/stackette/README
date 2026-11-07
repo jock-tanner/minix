@@ -1,0 +1,26 @@
+The Minix library for the Stackette
+===================================
+
+build.sh compiles lib/{ansi,posix,other,stdio,syslib,math,fphook}, assembles
+lib/syscall (the stubs are portable as they are) and the machine dependent
+files of this directory, and makes libc.a, libsys.a, libm.a and crtso.o:
+
+    ACK=/path/to/ack/.obj/staging OUT=/tmp/minixlib sh build.sh
+
+The machine dependent files:
+
+  sendrec.s   _send, _receive, _sendrec: traps 1, 2, 3 of the kernel
+  setjmp.s    setjmp, _setjmp, _kjmp: setjmp and longjmp are traps 32 and 33
+  setjmp.c    the signal mask part of setjmp, longjmp, _longjmp
+  brksize.s   the initial break
+  crtso.s     the start of a process (argc, argv, envp from the stack image)
+
+Not written yet: ___sigreturn (it depends on the signal frame that the kernel
+builds), getprocessor and the kernel itself.
+
+test/run.sh builds a program against the library and runs it on the Python model of
+the CPU, with test/harness.c in place of the kernel. tools-stackette/retcheck.py
+cross-checks the sizes of the results and the arguments of all calls in
+a set of EM files (compile with `ack -mstackette -c.k`): on the Stackette the
+callee removes the arguments and leaves the result, so a function that is
+declared with one type and defined with another unbalances the stack.

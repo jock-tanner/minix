@@ -75,7 +75,14 @@
 #define __ACK__
 #endif
 
-#ifdef __ACK__
+/* The Stackette: setjmp and longjmp are system calls of the kernel. The
+ * compiler does not treat any symbol specially, and the kernel keeps its own
+ * four words in the buffer, from __pc on (see lib/stackette/setjmp.s).
+ */
+#ifdef __stackette
+#define _SETJMP_SYMBOL 0
+#define _SETJMP_SAVES_REGS 0
+#elif defined(__ACK__)
 #define _SETJMP_SYMBOL 1
 #define _SETJMP_SAVES_REGS 0
 #endif
@@ -95,7 +102,12 @@
 typedef struct {
   int __flags;			/* XXX - long might give better alignment */
   long __mask;			/* must have size >= sizeof(sigset_t) */
-#if (_SETJMP_SAVES_REGS == 0)
+#if defined(__stackette)
+  _PROTOTYPE(void (*__pc),(void));	/* the return address of setjmp */
+  void *__lb;			/* the parameter frame pointer of the caller */
+  void *__sp;			/* the return stack pointer after the return */
+  void *__psp;			/* the parameter stack pointer after it */
+#elif (_SETJMP_SAVES_REGS == 0)
   _PROTOTYPE(void (*__pc),(void));	/* program counter */
   void *__sp;			/* stack pointer */
   void *__lb;			/* local base (ACKspeak for frame pointer) */

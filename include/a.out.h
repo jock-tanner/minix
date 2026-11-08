@@ -34,6 +34,7 @@ struct	exec {			/* a.out header */
 #define A_M68K	0x0B	/* motorola m68000 */
 #define A_NS16K	0x0C	/* national semiconductor 16032 */
 #define A_I80386 0x10	/* intel i80386 */
+#define A_STACKETTE 0x20	/* Stackette, little-endian */
 #define A_SPARC	0x17	/* Sun SPARC */
 
 #define A_BLR(cputype)	((cputype&0x01)!=0) /* TRUE if bytes left-to-right */

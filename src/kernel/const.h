@@ -89,6 +89,35 @@
 
 #endif /* (CHIP == INTEL) */
 
+#if (CHIP == STACKETTE)
+
+#define K_STACK_BYTES   0	/* the kernel has its own context, see mpx.c */
+
+/* Sizes of memory tables. */
+#define NR_MEMS            2	/* number of chunks of memory */
+
+#define INIT_PSW           0	/* initial psw */
+#define INIT_TASK_PSW      0	/* initial psw for tasks */
+#define TRACEBIT           0	/* there is no trace bit */
+#define SETPSW(rp, new)		/* the flags are the process's own */ \
+	((rp)->p_reg.psw = (rp)->p_reg.psw & ~0x1f | (new) & 0x1f)
+
+/* Disable/enable hardware interrupts. The system context is never interrupted
+ * (so that is no use there, and does no harm); a task is a process of the user
+ * context and it masks the lines at the interrupt controller. `kernel_mask`
+ * (glo.h) is the set of lines that are open.
+ */
+#define INTC_MASK	(*(volatile unsigned *) 0xf00a)
+#define lock()		(INTC_MASK = 0)
+#define unlock()	(INTC_MASK = kernel_mask)
+
+/* Hardware interrupt numbers (the lines of the interrupt controller). */
+#define NR_IRQ_VECTORS     8
+#define CLOCK_IRQ          0	/* the timer */
+#define UART_IRQ           1	/* the UART receiver */
+
+#endif /* (CHIP == STACKETTE) */
+
 #if (CHIP == M68000)
 
 #define K_STACK_BYTES   1024	/* how many bytes for the kernel stack */

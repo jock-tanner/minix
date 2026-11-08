@@ -10,7 +10,7 @@ typedef unsigned int vir_clicks; /* virtual  addresses and lengths in clicks */
 typedef unsigned long phys_bytes;/* physical addresses and lengths in bytes */
 typedef unsigned int phys_clicks;/* physical addresses and lengths in clicks */
 
-#if (CHIP == INTEL)
+#if (CHIP == INTEL || CHIP == STACKETTE)
 typedef unsigned int vir_bytes;	/* virtual addresses and lengths in bytes */
 #endif
 

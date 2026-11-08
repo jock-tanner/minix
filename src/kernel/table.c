@@ -118,6 +118,7 @@ PUBLIC struct tasktab tasktab[] = {
 	{ 0,			0,		"INIT"		},
 };
 
+#if NR_CTRLRS > 0
 /* Mapping from driver names to driver functions, e.g. "bios" -> bios_wini. */
 PRIVATE struct drivertab {
 	char drivername[8];
@@ -179,6 +180,10 @@ PUBLIC void mapdrivers()
 	}
   }
 }
+
+#else
+PUBLIC void mapdrivers() {}
+#endif /* NR_CTRLRS > 0 */
 
 /* Stack space for all the task stacks.  (Declared as (char *) to align it.) */
 PUBLIC char *t_stack[TOT_STACK_SPACE / sizeof(char *)];

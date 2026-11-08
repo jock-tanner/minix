@@ -71,6 +71,20 @@
 #define TIMER_FREQ  2457600L	/* timer 3 input clock frequency */
 #endif
 
+#if (CHIP == STACKETTE)
+#define TIMER_COUNT_REG	(*(volatile unsigned *) 0xf010)
+#define TIMER_COMPARE	(*(volatile unsigned *) 0xf012)
+#define TIMER_CONTROL	(*(volatile unsigned *) 0xf014)
+#define TIMER_STATUS	(*(volatile unsigned *) 0xf016)
+#define TIMER_PRESCALE	(*(volatile unsigned *) 0xf018)
+#define TIMER_RUN	1
+#define TIMER_RELOAD	2
+#define CPU_FREQ	50000000L	/* the clock of the timer */
+#define TIMER_DIV	16		/* the prescaler counts to this - 1 */
+#define TIMER_FREQ	(CPU_FREQ / TIMER_DIV)
+#define TIMER_COUNT	((unsigned) (TIMER_FREQ / HZ))	/* ticks per period */
+#endif
+
 /* Clock task variables. */
 PRIVATE clock_t realtime;	/* real time clock */
 PRIVATE time_t boot_time;	/* time in seconds of system boot */
@@ -471,10 +485,15 @@ irq_hook_t *hook;
   register unsigned ticks;
   clock_t now;
 
+#if (CHIP == INTEL)
   if (ps_mca) {
 	/* Acknowledge the PS/2 clock interrupt. */
 	outb(PORT_B, inb(PORT_B) | CLOCK_ACK_BIT);
   }
+#endif
+#if (CHIP == STACKETTE)
+  TIMER_STATUS = 1;		/* acknowledge the match */
+#endif
 
   /* Update user and system accounting times.
    * First charge the current process for user time.
@@ -615,6 +634,81 @@ struct micro_state *msp;
 }
 #endif /* (CHIP == INTEL) */
 
+
+#if (CHIP == STACKETTE)
+
+/*===========================================================================*
+ *				init_clock				     *
+ *===========================================================================*/
+PRIVATE void init_clock()
+{
+/* Start the timer: a match every 1/HZ second, reloading. */
+  static irq_hook_t clock_hook;
+
+  TIMER_CONTROL = 0;
+  TIMER_PRESCALE = TIMER_DIV - 1;
+  TIMER_COMPARE = TIMER_COUNT - 1;
+  TIMER_COUNT_REG = 0;
+  TIMER_STATUS = 1;
+  put_irq_handler(&clock_hook, CLOCK_IRQ, clock_handler);
+  enable_irq(&clock_hook);
+  TIMER_CONTROL = TIMER_RUN | TIMER_RELOAD;
+}
+
+/*===========================================================================*
+ *				clock_stop				     *
+ *===========================================================================*/
+PUBLIC void clock_stop()
+{
+  TIMER_CONTROL = 0;
+}
+
+/*==========================================================================*
+ *				micro_delay				    *
+ *==========================================================================*/
+PUBLIC void micro_delay(micros)
+unsigned long micros;
+{
+/* Delay some microseconds. */
+  struct micro_state ms;
+
+  micro_start(&ms);
+  while (micro_elapsed(&ms) < micros) {}
+}
+
+/*==========================================================================*
+ *				micro_start				    *
+ *==========================================================================*/
+PUBLIC void micro_start(msp)
+struct micro_state *msp;
+{
+  msp->prev_count = TIMER_COUNT_REG;
+  msp->accum_count = 0;
+}
+
+/*==========================================================================*
+ *				micro_elapsed				    *
+ *==========================================================================*/
+PUBLIC unsigned long micro_elapsed(msp)
+struct micro_state *msp;
+{
+/* The number of microseconds since micro_start(). The counter counts up to
+ * TIMER_COUNT - 1 and restarts at 0; it must be polled at least once a tick.
+ */
+  unsigned count;
+  unsigned long n;
+
+  count = TIMER_COUNT_REG;
+  if (count >= msp->prev_count)
+	msp->accum_count += count - msp->prev_count;
+  else
+	msp->accum_count += (TIMER_COUNT - msp->prev_count) + count;
+  msp->prev_count = count;
+  n = msp->accum_count;
+  if (n < ULONG_MAX / 1000000L) return n * 1000000L / TIMER_FREQ;
+  return n / TIMER_FREQ * 1000000L;
+}
+#endif /* (CHIP == STACKETTE) */
 
 #if (CHIP == M68000)
 #include "staddr.h"

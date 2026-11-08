@@ -93,6 +93,32 @@ typedef int (*irq_handler_t)(struct irq_hook *);
 
 #endif /* (CHIP == INTEL) */
 
+#if (CHIP == STACKETTE)
+typedef unsigned reg_t;		/* machine register */
+
+/* The registers of a context, in the order of the context device (kernel.md):
+ * what the kernel keeps for a process that does not run.
+ */
+struct stackframe_s {
+  reg_t pc;			/* IP */
+  reg_t rsp;			/* the return stack pointer */
+  reg_t fp;			/* PFP, the parameter frame pointer */
+  reg_t mbp;			/* the memory base pointer */
+  reg_t midx;			/* the memory index */
+  reg_t psw;			/* SW, the status */
+  reg_t sp;			/* PSP, the parameter stack pointer */
+};
+
+typedef struct irq_hook {
+  struct irq_hook *next;
+  int (*handler)(struct irq_hook *);
+  int irq;
+  int id;
+} irq_hook_t;
+
+typedef int (*irq_handler_t)(struct irq_hook *);
+#endif /* (CHIP == STACKETTE) */
+
 #if (CHIP == M68000)
 typedef _PROTOTYPE( void (*dmaint_t), (void) );
 

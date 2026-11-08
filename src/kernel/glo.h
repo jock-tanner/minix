@@ -30,6 +30,15 @@ EXTERN phys_clicks tot_mem_size;	/* total system memory size */
 extern struct tasktab tasktab[];/* initialized in table.c, so extern here */
 extern char *t_stack[];		/* initialized in table.c, so extern here */
 EXTERN unsigned lost_ticks;	/* clock ticks counted outside the clock task */
+#if (CHIP == STACKETTE)
+EXTERN int in_kernel;		/* the system context is running */
+EXTERN unsigned kernel_mask;	/* the interrupt lines that are open */
+EXTERN phys_bytes mon_params;	/* the boot parameters (RBT_MONITOR) */
+EXTERN size_t mon_parmsize;
+EXTERN irq_hook_t *irq_hooks[NR_IRQ_VECTORS];	/* list of IRQ handlers */
+EXTERN int irq_actids[NR_IRQ_VECTORS];		/* IRQ ID bits active */
+EXTERN int irq_use;		/* bit map of all in-use irq's */
+#endif
 EXTERN clock_t tty_timeout;	/* time to wake up the TTY task */
 EXTERN int current;		/* currently visible console */
 

@@ -15,6 +15,9 @@
 #include <minix/callnr.h>
 #include <minix/com.h>
 #include "proc.h"
+#if (CHIP == STACKETTE)
+#include "stackette/stackette.h"
+#endif
 
 
 /*===========================================================================*
@@ -99,6 +102,18 @@ PUBLIC void main()
 	rp->p_map[S].mem_phys = text_base + text_clicks + data_clicks;
 	rp->p_map[S].mem_vir  = data_clicks;	/* empty - stack is in data */
 
+#if (CHIP == STACKETTE)
+	if (t < 0) {
+		/* A task runs on the kernel's text, in the flash, and on its
+		 * data, which is where it is (the pages 0 to KDATA_PAGES - 1).
+		 */
+		rp->p_map[D].mem_phys = 0;
+		rp->p_map[D].mem_len = KDATA_PAGES;
+		rp->p_map[S].mem_phys = KDATA_PAGES;
+		rp->p_map[S].mem_vir = KDATA_PAGES;
+	}
+#endif
+
 	/* Remove server memory from the free memory list.  The boot monitor
 	 * promises to put processes at the start of memory chunks.
 	 */
@@ -121,6 +136,13 @@ PUBLIC void main()
 				rp->p_map[S].mem_len) << CLICK_SHIFT;
 		rp->p_reg.sp -= sizeof(reg_t);
 	}
+
+#if (CHIP == STACKETTE)
+	rp->p_reg.fp = rp->p_reg.sp;	/* the first frame is the stack's end */
+	rp->p_reg.rsp = 0;
+	rp->p_reg.mbp = 0;
+	rp->p_reg.midx = 0;
+#endif
 
 	if (!isidlehardware(t)) lock_ready(rp);	/* IDLE, HARDWARE neveready */
 	rp->p_flags = 0;

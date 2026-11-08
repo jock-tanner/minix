@@ -183,6 +183,9 @@ _PROTOTYPE( void intr_init, (int mine)					);
 _PROTOTYPE( void kb_init, (struct tty *tp)				);
 _PROTOTYPE( int kbd_loadmap, (phys_bytes user_phys)			);
 _PROTOTYPE( void wreboot, (int how)					);
+_PROTOTYPE( int rpush, (struct proc *rp, reg_t value)			);
+_PROTOTYPE( int uwrite, (struct proc *rp, vir_bytes addr, reg_t value)	);
+_PROTOTYPE( void loadctx, (struct proc *rp)				);
 
 /* klib*.s */
 _PROTOTYPE( void int86, (void)						);
@@ -280,6 +283,41 @@ _PROTOTYPE( void alloc_segments, (struct proc *rp)			);
 _PROTOTYPE( int wdeth_probe, (struct dpeth *dep)			);
 
 #endif /* (CHIP == INTEL) */
+
+#if (CHIP == STACKETTE)
+/* stackette/mpx.c, the system context: the loop around reti */
+_PROTOTYPE( void restart, (void)					);
+_PROTOTYPE( void idle_task, (void)					);
+/* stackette/klib.c */
+_PROTOTYPE( void cp_mess, (int src, phys_clicks src_clicks, vir_bytes src_offset,
+		phys_clicks dst_clicks, vir_bytes dst_offset)		);
+_PROTOTYPE( void phys_copy, (phys_bytes source, phys_bytes dest,
+		phys_bytes count)					);
+_PROTOTYPE( void mem_init, (void)					);
+_PROTOTYPE( void alloc_segments, (struct proc *rp)			);
+_PROTOTYPE( void wreboot, (int how)					);
+/* stackette/irq.c */
+_PROTOTYPE( void put_irq_handler, (irq_hook_t *hook, int irq,
+						irq_handler_t handler)	);
+_PROTOTYPE( void intr_handle, (irq_hook_t *hook)			);
+_PROTOTYPE( void intr_init, (int mine)					);
+_PROTOTYPE( void enable_irq, (irq_hook_t *hook)				);
+_PROTOTYPE( int disable_irq, (irq_hook_t *hook)				);
+/* stackette/uart.c, the console */
+_PROTOTYPE( void cons_stop, (void)					);
+_PROTOTYPE( void putk, (int c)						);
+_PROTOTYPE( void scr_init, (struct tty *tp)				);
+_PROTOTYPE( void kb_init, (struct tty *tp)				);
+_PROTOTYPE( void toggle_scroll, (void)					);
+_PROTOTYPE( int con_loadfont, (phys_bytes user_phys)			);
+_PROTOTYPE( int kbd_loadmap, (phys_bytes user_phys)			);
+_PROTOTYPE( void select_console, (int cons_line)			);
+/* clock.c */
+_PROTOTYPE( void micro_start, (struct micro_state *msp)			);
+_PROTOTYPE( unsigned long micro_elapsed, (struct micro_state *msp)	);
+_PROTOTYPE( void micro_delay, (unsigned long usecs)			);
+#define milli_delay(n)	micro_delay((n) * 1000UL)
+#endif /* (CHIP == STACKETTE) */
 
 #if (CHIP == M68000)
 

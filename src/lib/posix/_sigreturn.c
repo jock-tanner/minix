@@ -26,6 +26,13 @@ int retval;
   sc.sc_fp = (int) jb[0].__lb;
 #endif
 
+#if (CHIP == STACKETTE)
+  sc.sc_pc = (int) jb[0].__pc;
+  sc.sc_fp = (int) jb[0].__lb;
+  sc.sc_rsp = (int) jb[0].__sp;
+  sc.sc_sp = (int) jb[0].__psp;
+#endif
+
 #if (CHIP == M68000)
   sc.sc_pc = (long) jb[0].__pc;
   sc.sc_sp = (long) jb[0].__sp;

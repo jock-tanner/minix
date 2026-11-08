@@ -17,6 +17,10 @@ struct proc {
 				/* 4 is LDT_SIZE - avoid include protect.h */
 #endif /* (CHIP == INTEL) */
 
+#if (CHIP == STACKETTE)
+  phys_clicks p_rpage;		/* the page of the return stack */
+#endif
+
 #if (CHIP == M68000)
   reg_t p_splow;		/* lowest observed stack value */
   int p_trap;			/* trap type (only low byte) */

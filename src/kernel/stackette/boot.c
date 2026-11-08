@@ -7,6 +7,8 @@
 #define WINDOW ((unsigned *) 0xb000)
 
 unsigned table_page;		/* the flash page of the table of the processes */
+unsigned text_end;		/* the end of the kernel's text */
+
 
 void bootc(et, ed, eb)
 unsigned et, ed, eb;
@@ -14,27 +16,37 @@ unsigned et, ed, eb;
   register unsigned i, n;
   register unsigned *s, *d;
   unsigned first, pages;
+  register volatile unsigned *p, *q;
 
   /* the code pages of the kernel are the flash */
-  n = et >> 12;
-  for (i = 0; i <= n; i++) SMMU[i] = FLASH + i;
+  /* no shifts: the helper routines are not in the first page */
+  n = 0;
+  for (i = et; i >= 0x1000; i -= 0x1000) n++;
+  p = SMMU;
+  for (i = 0; i <= n; i++) *p++ = FLASH + i;
 
   /* the rom and the data: the image is in the flash from the next page, it
    * goes to the data space from 0x1000 (RAM page 1), a page at a time through
    * the window 11 */
   first = n + 1;
   if ((et & 0xfff) == 0) first = n;
-  pages = (ed - 0x1000 + 0xfff) >> 12;
+  pages = 0;
+  for (i = ed - 0x1000; i > 0; i -= 0x1000) {
+	pages++;
+	if (i < 0x1000) break;
+  }
+  q = SMMU + DATA_MMU + 11;
   d = (unsigned *) 0x1000;
   for (n = 0; n < pages; n++) {
-	SMMU[DATA_MMU + 11] = FLASH + first + n;
+	*q = FLASH + first + n;
 	s = WINDOW;
 	for (i = 0; i < 2048; i++) *d++ = *s++;
   }
-  SMMU[DATA_MMU + 11] = 11;
+  *q = 11;
 
   /* the bss */
   for (d = (unsigned *) ed; d < (unsigned *) eb; d++) *d = 0;
 
   table_page = first + pages;
+  text_end = et;		/* (after the bss is cleared) */
 }

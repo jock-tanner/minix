@@ -59,7 +59,7 @@
 #define CLICK_SHIFT       10	/* log2 of CLICK_SIZE */
 #endif
 
-#if (CHIP == SPARC) || (CHIP == M68000)
+#if (CHIP == SPARC) || (CHIP == M68000) || (CHIP == STACKETTE)
 #define CLICK_SIZE	4096	/* unit in which memory is alocated */
 #define CLICK_SHIFT	  12	/* 2log of CLICK_SIZE */
 #endif

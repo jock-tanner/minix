@@ -14,7 +14,11 @@
 /*===========================================================================*
  *		This section contains user-settable parameters		     *
  *===========================================================================*/
+#ifdef __stackette
+#define MACHINE   STKT
+#else
 #define MACHINE       IBM_PC	/* Must be one of the names listed below */
+#endif
 
 #define IBM_PC             1	/* any  8088 or 80x86-based system */
 #define SUN_4             40	/* any Sun SPARC-based system */
@@ -22,6 +26,7 @@
 #define ATARI             60	/* ATARI ST/STe/TT (68000/68030) */
 #define AMIGA             61	/* Commodore Amiga (68000) */
 #define MACINTOSH         62	/* Apple Macintosh (68000) */
+#define STKT              70	/* Stackette, a 16-bit stack machine */
 
 /* Word size in bytes (a constant equal to sizeof(int)). */
 #if __ACK__
@@ -42,6 +47,11 @@
 #define NR_BUF_HASH      128	/* size of buf hash table; MUST BE POWER OF 2*/
 #endif
 
+#if (MACHINE == STKT)
+#define NR_BUFS           16	/* FS has a 64 KiB data and stack space */
+#define NR_BUF_HASH       16	/* size of buf hash table; MUST BE POWER OF 2*/
+#endif
+
 #if (MACHINE == SUN_4_60)
 #define NR_BUFS		 512	/* # blocks in the buffer cache (<=1536) */
 #define NR_BUF_HASH	 512	/* size of buf hash table; MUST BE POWER OF 2*/
@@ -54,23 +64,27 @@
 				 * the end of bss and lowest stack address */
 
 /* Number of controller tasks (/dev/cN device classes). */
+#if (MACHINE == STKT)
+#define NR_CTRLRS          0
+#else
 #define NR_CTRLRS          2
+#endif
 
 /* Enable or disable the second level file system cache on the RAM disk. */
-#define ENABLE_CACHE2      1
+#define ENABLE_CACHE2      (MACHINE != STKT)
 
 /* Enable or disable swapping processes to disk. */
-#define ENABLE_SWAP	   1
+#define ENABLE_SWAP	   (MACHINE != STKT)
 
 /* Include or exclude device drivers.  Set to 1 to include, 0 to exclude. */
-#define ENABLE_AT_WINI     1	/* enable AT winchester driver */
-#define   ENABLE_ATAPI     1	/*   add ATAPI support to AT driver */
-#define ENABLE_BIOS_WINI   1	/* enable BIOS winchester driver */
+#define ENABLE_AT_WINI     (MACHINE != STKT)	/* enable AT winchester driver */
+#define   ENABLE_ATAPI     (MACHINE != STKT)	/*   add ATAPI support to AT driver */
+#define ENABLE_BIOS_WINI   (MACHINE != STKT)	/* enable BIOS winchester driver */
 #define ENABLE_ESDI_WINI   0	/* enable ESDI winchester driver */
 #define ENABLE_XT_WINI     0	/* enable XT winchester driver */
 #define ENABLE_AHA1540_SCSI 0	/* enable Adaptec 1540 SCSI driver */
-#define ENABLE_FATFILE     1	/* enable FAT file virtual disk driver */
-#define ENABLE_DOSFILE     1	/* enable DOS file virtual disk driver */
+#define ENABLE_FATFILE     (MACHINE != STKT)	/* enable FAT file virtual disk driver */
+#define ENABLE_DOSFILE     (MACHINE != STKT)	/* enable DOS file virtual disk driver */
 #define ENABLE_SB16        0	/* enable Soundblaster audio driver */
 #define ENABLE_PRINTER     0	/* enable printer driver */
 #define ENABLE_USERBIOS    0	/* enable user mode BIOS calls */
@@ -93,7 +107,11 @@
 /* NR_CONS, NR_RS_LINES, and NR_PTYS determine the number of terminals the
  * system can handle.
  */
+#if (MACHINE == STKT)
+#define NR_CONS            1
+#else
 #define NR_CONS            2	/* # system consoles (1 to 8) */
+#endif
 #define	NR_RS_LINES	   0	/* # rs232 terminals (0 to 4) */
 #define	NR_PTYS		   0	/* # pseudo terminals (0 to 64) */
 
@@ -108,6 +126,7 @@
 #define INTEL             1	/* CHIP type for PC, XT, AT, 386 and clones */
 #define M68000            2	/* CHIP type for Atari, Amiga, Macintosh    */
 #define SPARC             3	/* CHIP type for SUN-4 (e.g. SPARCstation)  */
+#define STACKETTE         4	/* CHIP type for Stackette                  */
 
 /* Set the FP_FORMAT type based on the machine selected, either hw or sw    */
 #define FP_NONE		  0	/* no floating point support                */
@@ -119,6 +138,10 @@
 
 #if (MACHINE == ATARI) || (MACHINE == AMIGA) || (MACHINE == MACINTOSH)
 #define CHIP         M68000
+#endif
+
+#if (MACHINE == STKT)
+#define CHIP          STACKETTE
 #endif
 
 #if (MACHINE == SUN_4) || (MACHINE == SUN_4_60)

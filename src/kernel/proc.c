@@ -35,7 +35,7 @@ FORWARD _PROTOTYPE( void cp_mess, (int src, struct proc *src_p, message *src_m,
 		struct proc *dst_p, message *dst_m) );
 #endif
 
-#if (CHIP == INTEL)
+#if (CHIP == INTEL || CHIP == STACKETTE)
 #define CopyMess(s,sp,sm,dp,dm) \
 	cp_mess(s, (sp)->p_map[D].mem_phys, (vir_bytes)sm, (dp)->p_map[D].mem_phys, (vir_bytes)dm)
 #endif

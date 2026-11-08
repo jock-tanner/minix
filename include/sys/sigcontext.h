@@ -58,6 +58,24 @@ struct sigframe {		/* stack frame created for signalled process */
 };
 
 #else
+#if (CHIP == STACKETTE)
+struct sigregs {		/* the registers of the context device */
+  int sr_ip;
+  int sr_rsp;
+  int sr_pfp;
+  int sr_mbp;
+  int sr_midx;
+  int sr_sw;
+  int sr_psp;
+  int sr_retreg;		/* sigjmp: the value of setjmp, stored at [psp] */
+};
+
+struct sigframe {		/* the parameters of the handler, at its PFP */
+  int sf_signo;
+  int sf_code;
+  struct sigcontext *sf_scp;
+};
+#else
 #if (CHIP == M68000)
 struct sigregs {  
   long sr_retreg;			/* d0 */
@@ -82,6 +100,7 @@ struct sigregs {
 };
 #else
 #include "error, CHIP is not supported"
+#endif
 #endif
 #endif /* CHIP == INTEL */
 
@@ -114,6 +133,17 @@ struct sigcontext {
 #define sc_sp sc_regs.sr_sp
 #define sc_ss sc_regs.sr_ss
 #endif /* CHIP == INTEL */
+
+#if (CHIP == STACKETTE)
+#define sc_pc sc_regs.sr_ip
+#define sc_rsp sc_regs.sr_rsp
+#define sc_fp sc_regs.sr_pfp
+#define sc_mbp sc_regs.sr_mbp
+#define sc_midx sc_regs.sr_midx
+#define sc_psw sc_regs.sr_sw
+#define sc_sp sc_regs.sr_psp
+#define sc_retreg sc_regs.sr_retreg
+#endif /* CHIP == STACKETTE */
 
 #if (CHIP == M68000)
 #define sc_retreg sc_regs.sr_retreg

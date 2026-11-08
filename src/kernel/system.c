@@ -229,7 +229,9 @@ register message *m_ptr;	/* pointer to request message */
   sigemptyset(&rpc->p_pending);
   rpc->p_pendcount = 0;
   rpc->p_pid = m_ptr->PID;	/* install child's pid */
+#if (CHIP != STACKETTE)
   rpc->p_reg.retreg = 0;	/* child sees pid = 0 to know it is child */
+#endif
 
   rpc->user_time = 0;		/* set all the accounting times to 0 */
   rpc->sys_time = 0;
@@ -338,6 +340,16 @@ register message *m_ptr;	/* pointer to request message */
   /* Initialize fpp for this process */
   fpp_new_state(rp);
 #endif
+#endif
+#if (CHIP == STACKETTE)
+  /* A new image starts at its entry with the stack MM has built, a fresh
+   * return stack, and the base and index of the memory unit cleared.
+   */
+  rp->p_reg.fp = sp;
+  rp->p_reg.rsp = 0;
+  rp->p_reg.mbp = 0;
+  rp->p_reg.midx = 0;
+  rp->p_reg.psw = INIT_PSW;
 #endif
 #if (CHIP == INTEL)		/* wipe extra LDT entries */
   memset(&rp->p_ldt[EXTRA_LDT_INDEX], 0,
@@ -530,6 +542,27 @@ message *m_ptr;			/* pointer to request message */
   if (dst_phys == 0) return(EFAULT);
   phys_copy(vir2phys(&sc), dst_phys, (phys_bytes) sizeof(struct sigcontext));
 
+#if (CHIP == STACKETTE)
+  /* The handler is called as from the interrupted code: the return address
+   * (the sigreturn stub) and the caller's PFP, which points to the frame, go
+   * on the return stack; the frame is the handler's parameters, [pfp+0] up.
+   * The stub finds the sigcontext at [pfp+4].
+   */
+  frp = (struct sigframe *) scp - 1;
+  fr.sf_scp = scp;
+  fr.sf_code = 0;
+  fr.sf_signo = smsg.sm_signo;
+  dst_phys = umap(rp, D, (vir_bytes) frp, (vir_bytes) sizeof(struct sigframe));
+  if (dst_phys == 0) return(EFAULT);
+  phys_copy(vir2phys(&fr), dst_phys, (phys_bytes) sizeof(struct sigframe));
+  if (rpush(rp, (reg_t) frp) != OK) return(EFAULT);
+  if (rpush(rp, (reg_t) smsg.sm_sigreturn) != OK) return(EFAULT);
+  rp->p_reg.fp = (reg_t) frp;
+  rp->p_reg.sp = (reg_t) frp;
+  rp->p_reg.pc = (reg_t) smsg.sm_sighandler;
+  return(OK);
+#endif
+#if (CHIP != STACKETTE)
   /* Initialize the sigframe structure. */
   frp = (struct sigframe *) scp - 1;
   fr.sf_scpcopy = scp;
@@ -551,6 +584,7 @@ message *m_ptr;			/* pointer to request message */
   rp->p_reg.pc = (reg_t) smsg.sm_sighandler;
 
   return(OK);
+#endif /* (CHIP != STACKETTE) */
 }
 
 /*===========================================================================*
@@ -583,7 +617,12 @@ register message *m_ptr;
    * register variables within functions containing setjmp.
    */
   if (sc.sc_flags & SC_NOREGLOCALS) {
+#if (CHIP == STACKETTE)
+	/* the value of setjmp is the result on the parameter stack */
+	if (uwrite(rp, sc.sc_sp, sc.sc_retreg) != OK) return(EFAULT);
+#else
 	rp->p_reg.retreg = sc.sc_retreg;
+#endif
 	rp->p_reg.fp = sc.sc_fp;
 	rp->p_reg.pc = sc.sc_pc;
 	rp->p_reg.sp = sc.sc_sp;
@@ -1102,6 +1141,21 @@ vir_bytes bytes;		/* # of bytes to be copied */
   phys_bytes seg_base;
 #endif
 
+#if (CHIP == STACKETTE)
+  /* The stack is part of D (S is empty), the segments start at click
+   * boundaries and `vir_bytes` is as wide as the address space, so the end of
+   * the area is computed in a long.
+   */
+  if (bytes <= 0) return( (phys_bytes) 0);
+  if (seg != T) seg = D;
+  pa = (phys_bytes) vir_addr + bytes - 1;
+  vc = pa >> CLICK_SHIFT;
+  if ((vir_addr >> CLICK_SHIFT) < rp->p_map[seg].mem_vir ||
+      vc >= rp->p_map[seg].mem_vir + rp->p_map[seg].mem_len)
+	return( (phys_bytes) 0 );
+  return(((phys_bytes) rp->p_map[seg].mem_phys << CLICK_SHIFT) +
+	 (vir_addr - ((phys_bytes) rp->p_map[seg].mem_vir << CLICK_SHIFT)));
+#else
   /* If 'seg' is D it could really be S and vice versa.  T really means T.
    * If the virtual address falls in the gap,  it causes a problem. On the
    * 8088 it is probably a legal stack reference, since "stackfaults" are
@@ -1137,6 +1191,7 @@ vir_bytes bytes;		/* # of bytes to be copied */
   pa += (phys_bytes)rp->p_map[seg].mem_phys << CLICK_SHIFT;
   return(pa);
 #endif
+#endif /* (CHIP == STACKETTE) */
 }
 
 

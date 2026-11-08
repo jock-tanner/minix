@@ -51,7 +51,7 @@ $ACK/bin/aal rc "$OUT/libc.a" "$OUT"/ansi/*.o "$OUT"/posix/*.o "$OUT"/other/*.o 
 	"$OUT"/stackette/sendrec.o "$OUT"/stackette/brksize.o \
 	"$OUT"/stackette/setjmp.o "$OUT"/stackette/setjmps.o \
 	"$OUT"/ackc/frexp.o "$OUT"/ackc/modf.o
-$ACK/bin/aal rc "$OUT/libsys.a" "$OUT"/syslib/*.o
+$ACK/bin/aal rc "$OUT/libsys.a" "$OUT"/syslib/*.o "$OUT"/stackette/int64.o
 $ACK/bin/aal rc "$OUT/libm.a" "$OUT"/math/*.o
 cp "$OUT/stackette/crtso.o" "$OUT/crtso.o"
 [ $fail = 0 ] && echo "built: $OUT/libc.a libsys.a libm.a crtso.o"

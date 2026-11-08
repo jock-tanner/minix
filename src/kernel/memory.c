@@ -176,7 +176,11 @@ PRIVATE void m_init()
 #if (CHIP == M68000)
   m_geom[MEM_DEV].dv_size = cvul64(MEM_BYTES);
 #else /* !(CHIP == M68000) */
+#if (CHIP == STACKETTE)
+  m_geom[MEM_DEV].dv_size = cvul64(0x2000000L);	/* the RAM, 32 MiB */
+#else
 #error /* memory limit not set up */
+#endif
 #endif /* !(CHIP == M68000) */
 #endif /* !(CHIP == INTEL) */
 }

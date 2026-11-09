@@ -9,6 +9,25 @@
 #include "../proc.h"
 #include "stackette.h"
 
+PUBLIC unsigned phys_page(a)
+phys_bytes a;
+{
+  union physw u;
+
+  u.l = a;
+  return((u.w[1] << 4) | (u.w[0] >> 12));
+}
+
+PUBLIC phys_bytes phys_make(page, offset)
+unsigned page, offset;
+{
+  union physw u;
+
+  u.w[1] = page >> 4;
+  u.w[0] = (page << 12) | offset;
+  return(u.l);
+}
+
 /*===========================================================================*
  *				phys_copy_sys				     *
  *===========================================================================*/
@@ -24,12 +43,12 @@ phys_bytes src, dst, n;
   unsigned i;
 
   while (n > 0) {
-	so = (unsigned) (src & (PAGE_SIZE - 1));
-	dof = (unsigned) (dst & (PAGE_SIZE - 1));
+	so = (unsigned) src & (PAGE_SIZE - 1);
+	dof = (unsigned) dst & (PAGE_SIZE - 1);
 	chunk = PAGE_SIZE - (so > dof ? so : dof);
 	if (n < chunk) chunk = (unsigned) n;
-	SMMU(SP_DATA, WIN_SRC) = (unsigned) (src >> PAGE_SHIFT);
-	SMMU(SP_DATA, WIN_DST) = (unsigned) (dst >> PAGE_SHIFT);
+	SMMU(SP_DATA, WIN_SRC) = phys_page(src);
+	SMMU(SP_DATA, WIN_DST) = phys_page(dst);
 	if (((so | dof | chunk) & 1) == 0) {
 		s = WINDOW(WIN_SRC) + (so >> 1);
 		d = WINDOW(WIN_DST) + (dof >> 1);
@@ -79,12 +98,12 @@ vir_bytes dst_offset;
 /* Copy a message from the data space of one process to that of another and
  * fill in its source field. Only the system context calls this.
  */
-  phys_bytes s = ((phys_bytes) src_clicks << CLICK_SHIFT) + src_offset;
-  phys_bytes d = ((phys_bytes) dst_clicks << CLICK_SHIFT) + dst_offset;
+  phys_bytes s = phys_make(src_clicks, 0) + src_offset;
+  phys_bytes d = phys_make(dst_clicks, 0) + dst_offset;
 
   phys_copy_sys(s, d, (phys_bytes) sizeof(message));
-  SMMU(SP_DATA, WIN_DST) = (unsigned) (d >> PAGE_SHIFT);
-  ((message *) (WINDOW(WIN_DST) + ((unsigned) (d & (PAGE_SIZE - 1)) >> 1)))
+  SMMU(SP_DATA, WIN_DST) = phys_page(d);
+  ((message *) (WINDOW(WIN_DST) + (((unsigned) d & (PAGE_SIZE - 1)) >> 1)))
 							->m_source = src;
 }
 

@@ -15,7 +15,8 @@ page 0x2000 + n):
 The table (16-bit little-endian words) is `KS`, n, then for each process
 eight words: first flash page of the text, pages of the text, first flash
 page of the data image, bytes of the data image (rom + data), bytes of bss,
-total bytes of the data segment, entry (0), 0. The kernel is not in the table:
+total bytes of the data segment, entry (0), 0. After the last process: the
+flash page of the root file system image, its size (low word, high word). The kernel is not in the table:
 its start code finds its own image by the symbols endtext, enddata.
 '''
 import argparse
@@ -61,6 +62,7 @@ def main():
     ap.add_argument('-k', '--kernel', required=True)
     ap.add_argument('-o', '--output', required=True)
     ap.add_argument('--stack', type=lambda x: int(x, 0), default=0x2000)
+    ap.add_argument('--rootfs', help='the root file system image (a Minix volume)')
     ap.add_argument('procs', nargs='*')
     a = ap.parse_args()
     image = bytearray()
@@ -79,11 +81,17 @@ def main():
         total = (len(data) + bss + a.stack + PAGE - 1) // PAGE * PAGE
         table.append((tpage, len(pad(text)) // PAGE, dpage, len(data), bss,
                       total, 0, 0))
+    root = (0, 0, 0)
+    if a.rootfs:
+        rd = open(a.rootfs, 'rb').read()
+        root = (len(image) // PAGE, len(rd) & 0xffff, len(rd) >> 16)
+        image += pad(rd)
     if len(image) > FLASH_PAGES * PAGE:
         sys.exit('the image does not fit in the flash')
     words = [MAGIC, len(table)]
     for t in table:
         words.extend(t)
+    words.extend(root)	# after the processes: page and size of the root image
     tab = struct.pack('<%dH' % len(words), *words)
     if len(tab) > PAGE:
         sys.exit('too many processes')

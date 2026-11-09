@@ -37,7 +37,11 @@
  * The order of the names here MUST agree with the numerical values assigned to
  * the tasks in <minix/com.h>.
  */
+#if (CHIP == STACKETTE)
+#define SMALL_STACK	1024		/* frames are large, there is room */
+#else
 #define SMALL_STACK	(128 * sizeof(char *))
+#endif
 
 #define	TTY_STACK	(3 * SMALL_STACK)
 #define SYN_ALRM_STACK	SMALL_STACK

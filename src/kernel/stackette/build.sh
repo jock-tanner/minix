@@ -28,4 +28,4 @@ for f in kboot klib; do
 done
 $ACK/lib/ack/em_led -a0:2 -a1:2 -a2:2 -a3:2 -b1:0x1000 -o kernel.out \
 	s_kboot.o $objs s_klib.o "$OUT/libsys.a" "$OUT/libc.a" "$PLAT/libem.a" "$PLAT/libend.a"
-python3 $TOOLS/mkflash.py -k kernel.out -o flash.bin --stack 0x1000 "$@"
+python3 $TOOLS/mkflash.py -k kernel.out -o flash.bin --stack 0x2000 ${ROOTFS:+--rootfs $ROOTFS} "$@"

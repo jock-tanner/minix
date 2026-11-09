@@ -18,15 +18,18 @@
 extern unsigned table_page;	/* boot.c: the flash page of the table */
 extern unsigned text_end;	/* boot.c: the end of the kernel's text */
 
+phys_bytes rom_base;		/* the root image in the flash */
+unsigned long rom_size;
+
 PRIVATE char aout_table[(MAX_IMAGES + 1) * A_MINHDR];
 
 /* The boot parameters: a series of "name=value" strings, ending in an empty
  * one. What MM and FS ask for with sys_getenv().
  */
 PRIVATE char k_environ[] =
-	"rootdev=ram\0"
-	"ramimagedev=ram\0"
-	"memory=0:0\0"
+	"rootdev=256\0"		/* major 1 (memory), minor 0: the RAM disk */
+	"ramimagedev=260\0"		/* minor 4: the image in the flash */
+	"ramsize=0\0"
 	"processor=0\0";
 
 PUBLIC char *getenv(name)
@@ -49,13 +52,12 @@ _CONST char *name;
 PRIVATE void zero_pages(page, count)
 unsigned page, count;
 {
-  unsigned *w;
-  unsigned i;
+  unsigned *w, *e;
 
   while (count-- > 0) {
 	SMMU(SP_DATA, WIN_DST) = page++;
 	w = WINDOW(WIN_DST);
-	for (i = 0; i < PAGE_SIZE / 2; i++) w[i] = 0;
+	for (e = w + PAGE_SIZE / 2; w < e; ) *w++ = 0;
   }
   SMMU(SP_DATA, WIN_DST) = WIN_DST;
 }
@@ -122,6 +124,11 @@ PUBLIC void kmain()
 	header(1 + i, ntp << PAGE_SHIFT, dlen, bss, total, next);
 	next += ntp + (total >> PAGE_SHIFT);
   }
+
+  SMMU(SP_DATA, WIN_SRC) = FLASH_PAGE + table_page;
+  e = WINDOW(WIN_SRC) + 2 + ENT_WORDS * n;
+  rom_base = (phys_bytes) (FLASH_PAGE + e[0]) << PAGE_SHIFT;
+  rom_size = e[1] | ((unsigned long) e[2] << 16);
 
   main();
 }

@@ -69,3 +69,14 @@ _PROTOTYPE( void phys_copy_sys, (phys_bytes src, phys_bytes dst,
 							phys_bytes n)	);
 _PROTOTYPE( unsigned uread, (struct proc *rp, vir_bytes addr)		);
 _PROTOTYPE( unsigned rread, (struct proc *rp, unsigned rsp)		);
+
+/* Physical addresses are longs; shifting a long is a loop, so the page and the
+ * offset are taken from the words.
+ */
+union physw {
+  phys_bytes l;
+  unsigned w[2];		/* low word first */
+};
+
+_PROTOTYPE( unsigned phys_page, (phys_bytes a)				);
+_PROTOTYPE( phys_bytes phys_make, (unsigned page, unsigned offset)	);

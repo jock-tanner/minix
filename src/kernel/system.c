@@ -114,6 +114,9 @@
 #include <minix/callnr.h>
 #include <minix/com.h>
 #include "proc.h"
+#if (CHIP == STACKETTE)
+#include "stackette/stackette.h"
+#endif
 #if (CHIP == INTEL)
 #include "protect.h"
 #endif
@@ -1149,12 +1152,12 @@ vir_bytes bytes;		/* # of bytes to be copied */
   if (bytes <= 0) return( (phys_bytes) 0);
   if (seg != T) seg = D;
   pa = (phys_bytes) vir_addr + bytes - 1;
-  vc = pa >> CLICK_SHIFT;
+  vc = (vir_addr + bytes - 1 >= vir_addr) ? (vir_addr + bytes - 1) >> CLICK_SHIFT : 0xfff0;
   if ((vir_addr >> CLICK_SHIFT) < rp->p_map[seg].mem_vir ||
       vc >= rp->p_map[seg].mem_vir + rp->p_map[seg].mem_len)
 	return( (phys_bytes) 0 );
-  return(((phys_bytes) rp->p_map[seg].mem_phys << CLICK_SHIFT) +
-	 (vir_addr - ((phys_bytes) rp->p_map[seg].mem_vir << CLICK_SHIFT)));
+  return(phys_make(rp->p_map[seg].mem_phys, 0) + vir_addr -
+			((vir_bytes) rp->p_map[seg].mem_vir << CLICK_SHIFT));
 #else
   /* If 'seg' is D it could really be S and vice versa.  T really means T.
    * If the virtual address falls in the gap,  it causes a problem. On the

@@ -21,7 +21,14 @@
 #include <ibm/int86.h>
 #endif
 
+#if (CHIP == STACKETTE)
+#define NR_RAMS            5	/* number of RAM-type devices */
+#define ROM_DEV            4	/* minor device for /dev/rom: the root image */
+extern phys_bytes rom_base;	/* in the flash, set by start.c */
+extern unsigned long rom_size;
+#else
 #define NR_RAMS            4	/* number of RAM-type devices */
+#endif
 
 PRIVATE struct device m_geom[NR_RAMS];	/* Base and size of each RAM disk */
 PRIVATE int m_device;		/* current device */
@@ -106,6 +113,11 @@ unsigned nr_req;		/* length of request vector */
 		if (opcode == DEV_GATHER) return(OK);	/* Always at EOF. */
 		break;
 
+#if (CHIP == STACKETTE)
+	case ROM_DEV:
+		if (opcode == DEV_SCATTER) return(EACCES);
+		/* fall through */
+#endif
 	default:
 		/* /dev/mem, /dev/kmem, /dev/ram: Check for EOF */
 		if (position >= dv_size) return(OK);
@@ -178,6 +190,8 @@ PRIVATE void m_init()
 #else /* !(CHIP == M68000) */
 #if (CHIP == STACKETTE)
   m_geom[MEM_DEV].dv_size = cvul64(0x2000000L);	/* the RAM, 32 MiB */
+  m_geom[ROM_DEV].dv_base = cvul64(rom_base);
+  m_geom[ROM_DEV].dv_size = cvul64(rom_size);
 #else
 #error /* memory limit not set up */
 #endif

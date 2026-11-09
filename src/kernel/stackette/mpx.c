@@ -55,8 +55,8 @@ vir_bytes addr;
   unsigned *w;
 
   if ((addr & 1) != 0 || (pa = umap(rp, D, addr, 2)) == 0) return(0xffff);
-  w = window(WIN_USER, (unsigned) (pa >> PAGE_SHIFT));
-  return(w[(unsigned) (pa & (PAGE_SIZE - 1)) >> 1]);
+  w = window(WIN_USER, phys_page(pa));
+  return(w[((unsigned) pa & (PAGE_SIZE - 1)) >> 1]);
 }
 
 PUBLIC int uwrite(rp, addr, value)
@@ -68,8 +68,8 @@ reg_t value;
   unsigned *w;
 
   if ((addr & 1) != 0 || (pa = umap(rp, D, addr, 2)) == 0) return(EFAULT);
-  w = window(WIN_USER, (unsigned) (pa >> PAGE_SHIFT));
-  w[(unsigned) (pa & (PAGE_SIZE - 1)) >> 1] = value;
+  w = window(WIN_USER, phys_page(pa));
+  w[((unsigned) pa & (PAGE_SIZE - 1)) >> 1] = value;
   return(OK);
 }
 
@@ -143,17 +143,32 @@ struct proc *rp;
  * space and the parameter stack space, the return stack page; what is not
  * mapped refuses every access. A task also sees the peripherals.
  */
-  int sp, i;
+  register volatile unsigned *code = &UMMU(SP_CODE, 0);
+  register volatile unsigned *rstack = &UMMU(SP_RSTACK, 0);
+  register volatile unsigned *pstack = &UMMU(SP_PSTACK, 0);
+  register volatile unsigned *data = &UMMU(SP_DATA, 0);
+  register unsigned i, n, phys;
 
-  for (sp = 0; sp < 4; sp++)
-	for (i = 0; i < 16; i++) UMMU(sp, i) = NOMEM_PAGE;
-  for (i = 0; i < rp->p_map[T].mem_len; i++)
-	UMMU(SP_CODE, i) = rp->p_map[T].mem_phys + i;
-  for (i = 0; i < rp->p_map[D].mem_len; i++) {
-	UMMU(SP_DATA, i) = rp->p_map[D].mem_phys + i;
-	UMMU(SP_PSTACK, i) = rp->p_map[D].mem_phys + i;
+  for (i = 0; i < 16; i++) {
+	code[i] = NOMEM_PAGE;
+	rstack[i] = NOMEM_PAGE;
+	pstack[i] = NOMEM_PAGE;
+	data[i] = NOMEM_PAGE;
   }
-  UMMU(SP_RSTACK, 15) = rp->p_rpage;
+  n = rp->p_map[T].mem_len;
+  phys = rp->p_map[T].mem_phys;
+  for (i = 0; i < n; i++) {
+	*code++ = phys;
+	phys++;
+  }
+  n = rp->p_map[D].mem_len;
+  phys = rp->p_map[D].mem_phys;
+  for (i = 0; i < n; i++) {
+	*data++ = phys;
+	*pstack++ = phys;
+	phys++;
+  }
+  rstack[15] = rp->p_rpage;
   if (istaskp(rp)) UMMU(SP_DATA, 15) = PERIPH_PAGE;
   loaded = rp;
 }
@@ -171,7 +186,7 @@ PUBLIC void restart()
   int i, id;
 
   for (;;) {
-	unhold();			/* flush the held-up interrupts */
+	if (held_head != NIL_PROC) unhold();	/* flush the held-up interrupts */
 	rp = proc_ptr;
 	regs = (unsigned *) &rp->p_reg;
 	for (i = 0; i < NR_CTX_REGS; i++) CTX(i) = regs[i];

@@ -235,6 +235,14 @@ register message *m_ptr;	/* pointer to request message */
 #if (CHIP != STACKETTE)
   rpc->p_reg.retreg = 0;	/* child sees pid = 0 to know it is child */
 #endif
+#if (CHIP == STACKETTE)
+  /* The child continues with a return stack of its own, a copy of the
+   * parent's.
+   */
+  rpc->p_rpage = RSTACK_POOL + NR_TASKS + proc_number(rpc);
+  phys_copy(phys_make(rpp->p_rpage, 0), phys_make(rpc->p_rpage, 0),
+							(phys_bytes) PAGE_SIZE);
+#endif
 
   rpc->user_time = 0;		/* set all the accounting times to 0 */
   rpc->sys_time = 0;
@@ -272,6 +280,15 @@ message *m_ptr;			/* pointer to request message */
   assert(src_phys != 0);
   phys_copy(src_phys, vir2phys(rp->p_map), (phys_bytes) sizeof(rp->p_map));
 
+#if (CHIP == STACKETTE)
+  /* The stack is part of the data space (S is empty): the data space reaches
+   * to the end of the stack segment.
+   */
+  rp->p_map[D].mem_len = rp->p_map[S].mem_vir + rp->p_map[S].mem_len -
+							rp->p_map[D].mem_vir;
+  rp->p_map[S].mem_vir += rp->p_map[S].mem_len;
+  rp->p_map[S].mem_len = 0;
+#endif
 #if (CHIP != M68000)
   alloc_segments(rp);
 #else
@@ -1078,6 +1095,19 @@ int sig_nr;			/* signal to be sent, 1 to _NSIG */
  */
 
   register struct proc *rp, *mmp;
+#if (CHIP == STACKETTE)
+  struct kc_sig ks;
+
+  if (!in_kernel) {
+	/* A task: informing MM copies a message, which only the system
+	 * context does.
+	 */
+	ks.proc_nr = proc_nr;
+	ks.sig_nr = sig_nr;
+	(void) kcall(KC_CAUSE_SIG, &ks);
+	return;
+  }
+#endif
 
   rp = proc_addr(proc_nr);
   if (sigismember(&rp->p_pending, sig_nr))

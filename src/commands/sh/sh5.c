@@ -20,7 +20,7 @@ struct ioarg temparg = {0, 0, 0, AFID_NOBUF, 0};
 
 _PROTOTYPE(static void readhere, (char **name, char *s, int ec ));
 _PROTOTYPE(void pushio, (struct ioarg *argp, int (*fn)()));
-_PROTOTYPE(static int xxchar, (struct ioarg *ap ));
+_PROTOTYPE(static int xxchar, (struct ioarg *ap, struct io *iop));
 _PROTOTYPE(void tempname, (char *tname ));
 
 int
@@ -171,8 +171,9 @@ struct io *ip;
  * Produce the characters of a string, then a newline, then EOF.
  */
 int
-nlchar(ap)
+nlchar(ap, iop)
 register struct ioarg *ap;
+struct io *iop;
 {
 	register int c;
 
@@ -190,8 +191,9 @@ register struct ioarg *ap;
  * in them, with a space after each word.
  */
 int
-wdchar(ap)
+wdchar(ap, iop)
 register struct ioarg *ap;
+struct io *iop;
 {
 	register char c;
 	register char **wl;
@@ -213,8 +215,9 @@ register struct ioarg *ap;
  * producing a space between them.
  */
 int
-dolchar(ap)
+dolchar(ap, iop)
 register struct ioarg *ap;
+struct io *iop;
 {
 	register char *wp;
 
@@ -226,8 +229,9 @@ register struct ioarg *ap;
 }
 
 static int
-xxchar(ap)
+xxchar(ap, iop)
 register struct ioarg *ap;
+struct io *iop;
 {
 	register int c;
 
@@ -244,8 +248,9 @@ register struct ioarg *ap;
  * Produce the characters from a single word (string).
  */
 int
-strchar(ap)
+strchar(ap, iop)
 register struct ioarg *ap;
+struct io *iop;
 {
 	register int c;
 
@@ -258,8 +263,9 @@ register struct ioarg *ap;
  * Produce quoted characters from a single word (string).
  */
 int
-qstrchar(ap)
+qstrchar(ap, iop)
 register struct ioarg *ap;
+struct io *iop;
 {
 	register int c;
 
@@ -272,8 +278,9 @@ register struct ioarg *ap;
  * Return the characters from a file.
  */
 int
-filechar(ap)
+filechar(ap, iop)
 register struct ioarg *ap;
+struct io *iop;
 {
 	register int i;
 	char c;
@@ -307,8 +314,9 @@ register struct ioarg *ap;
  * Return the characters from a here temp file.
  */
 int
-herechar(ap)
+herechar(ap, iop)
 register struct ioarg *ap;
+struct io *iop;
 {
 	char c;
 
@@ -351,9 +359,9 @@ struct io *iop;
 		}
 		c = iop->xchar;
 		iop->xchar = 0;
-	} else if ((c = filechar(ap)) == '\n') {
+	} else if ((c = filechar(ap, iop)) == '\n') {
 		iop->nlcount = 1;
-		while ((c = filechar(ap)) == '\n')
+		while ((c = filechar(ap, iop)) == '\n')
 			iop->nlcount++;
 		iop->xchar = c;
 		if (c == 0)
@@ -368,12 +376,13 @@ struct io *iop;
  * Return a single command (usually the first line) from a file.
  */
 int
-linechar(ap)
+linechar(ap, iop)
 register struct ioarg *ap;
+struct io *iop;
 {
 	register int c;
 
-	if ((c = filechar(ap)) == '\n') {
+	if ((c = filechar(ap, iop)) == '\n') {
 		if (!multiline) {
 			closef(ap->afile);
 			ap->afile = -1;	/* illegal value */

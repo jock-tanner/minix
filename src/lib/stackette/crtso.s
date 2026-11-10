@@ -9,10 +9,19 @@
 .sect .text
 
 .define crtso, begtext, __penviron
-.extern _main, _exit, __penvp
+.extern _main, _exit, __penvp, _environ
 
 begtext:
 crtso:
+	! environ is ours when it still holds the magic number: then it is the
+	! variable that gets the environment.
+	ld push, [_environ]
+	cmp.pop #21331
+	skip eq
+	bra notours
+	ld push, #_environ
+	st [__penviron], pop
+notours:
 	ld push, [pfp+0]
 	add.tos tos
 	add.tos $2

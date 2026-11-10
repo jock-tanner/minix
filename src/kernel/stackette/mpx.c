@@ -66,7 +66,16 @@ reg_t value;
 {
   phys_bytes pa;
   unsigned *w;
+  struct kc_w kw;
 
+  if (!in_kernel) {
+	/* a task: the windows are the system context's */
+	kw.proc_nr = proc_number(rp);
+	kw.addr = addr;
+	kw.value = value;
+	(void) kcall(KC_UWRITE, &kw);
+	return(kw.result);
+  }
   if ((addr & 1) != 0 || (pa = umap(rp, D, addr, 2)) == 0) return(EFAULT);
   w = window(WIN_USER, phys_page(pa));
   w[((unsigned) pa & (PAGE_SIZE - 1)) >> 1] = value;
@@ -91,7 +100,16 @@ struct proc *rp;
 reg_t value;
 {
 /* Push on the return stack of a process (not running). */
-  unsigned *w = window(WIN_USER, rp->p_rpage);
+  unsigned *w;
+  struct kc_w kw;
+
+  if (!in_kernel) {
+	kw.proc_nr = proc_number(rp);
+	kw.value = value;
+	(void) kcall(KC_RPUSH, &kw);
+	return(kw.result);
+  }
+  w = window(WIN_USER, rp->p_rpage);
 
   rp->p_reg.rsp -= 2;
   w[(rp->p_reg.rsp & (PAGE_SIZE - 1)) >> 1] = value;
@@ -244,6 +262,8 @@ int f;
 						rp->p_reg.pc, PERIPH(0xf032));
 	panic("exception in a system process", NO_NUM);
   }
+  printf("\nfault %d of %s at %x, address %x\n", f, rp->p_name,
+					rp->p_reg.pc, PERIPH(0xf032));
   cause_sig(proc_number(rp), sig);
 }
 
@@ -290,6 +310,8 @@ struct proc *rp;
  */
   unsigned pfp, code, args;
   struct kc_copy *kc;
+  struct kc_sig *ks;
+  struct kc_w *kw;
 
   if (!istaskp(rp)) {
 	upush(rp, EPERM);
@@ -302,6 +324,18 @@ struct proc *rp;
   case KC_PHYS_COPY:
 	kc = (struct kc_copy *) args;
 	phys_copy_sys(kc->src, kc->dst, kc->n);
+	break;
+  case KC_UWRITE:
+	kw = (struct kc_w *) args;
+	kw->result = uwrite(proc_addr(kw->proc_nr), kw->addr, kw->value);
+	break;
+  case KC_RPUSH:
+	kw = (struct kc_w *) args;
+	kw->result = rpush(proc_addr(kw->proc_nr), kw->value);
+	break;
+  case KC_CAUSE_SIG:
+	ks = (struct kc_sig *) args;
+	cause_sig(ks->proc_nr, ks->sig_nr);
 	break;
   case KC_REBOOT:
 	wreboot(RBT_HALT);

@@ -58,6 +58,19 @@
 /* The services of TRAP_KCALL: kcall(code, &args). */
 #define KC_PHYS_COPY	1
 #define KC_REBOOT	2
+#define KC_CAUSE_SIG	3
+#define KC_UWRITE	4
+#define KC_RPUSH	5
+
+struct kc_w {
+  int proc_nr;
+  unsigned addr, value;
+  int result;
+};
+
+struct kc_sig {
+  int proc_nr, sig_nr;
+};
 
 struct kc_copy {
   phys_bytes src, dst, n;

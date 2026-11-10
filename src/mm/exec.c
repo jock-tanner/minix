@@ -305,6 +305,7 @@ phys_bytes tot_bytes;		/* total memory to allocate, including gap */
   /* Allow the old data to be swapped out to make room.  (Which is really a
    * waste of time, because we are going to throw it away anyway.)
    */
+  rmp = mp;
   rmp->mp_flags |= WAITING;
 
   /* Acquire the new memory.  Each of the 4 parts: text, (data+bss), gap,

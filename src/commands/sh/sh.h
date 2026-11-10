@@ -286,7 +286,7 @@ Extern struct ioarg ioargstack[NPUSH];
 
 /* an input generator's state */
 struct	io {
-	int	(*iofn)(_VOID);
+	int	(*iofn)();
 	struct	ioarg	*argp;
 	int	peekc;
 	char	prev;		/* previous character read by readc() */
@@ -306,16 +306,16 @@ Extern	struct	io	iostack[NPUSH];
 /*
  * input generators for IO structure
  */
-_PROTOTYPE(int nlchar , (struct ioarg *ap ));
-_PROTOTYPE(int strchar , (struct ioarg *ap ));
-_PROTOTYPE(int qstrchar , (struct ioarg *ap ));
-_PROTOTYPE(int filechar , (struct ioarg *ap ));
-_PROTOTYPE(int herechar , (struct ioarg *ap ));
-_PROTOTYPE(int linechar , (struct ioarg *ap ));
+_PROTOTYPE(int nlchar , (struct ioarg *ap, struct io *iop));
+_PROTOTYPE(int strchar , (struct ioarg *ap, struct io *iop));
+_PROTOTYPE(int qstrchar , (struct ioarg *ap, struct io *iop));
+_PROTOTYPE(int filechar , (struct ioarg *ap, struct io *iop));
+_PROTOTYPE(int herechar , (struct ioarg *ap, struct io *iop));
+_PROTOTYPE(int linechar , (struct ioarg *ap, struct io *iop));
 _PROTOTYPE(int gravechar , (struct ioarg *ap , struct io *iop ));
 _PROTOTYPE(int qgravechar , (struct ioarg *ap , struct io *iop ));
-_PROTOTYPE(int dolchar , (struct ioarg *ap ));
-_PROTOTYPE(int wdchar , (struct ioarg *ap ));
+_PROTOTYPE(int dolchar , (struct ioarg *ap, struct io *iop));
+_PROTOTYPE(int wdchar , (struct ioarg *ap, struct io *iop));
 _PROTOTYPE(void scraphere , (void));
 _PROTOTYPE(void freehere , (int area ));
 _PROTOTYPE(void gethere , (void));
@@ -340,7 +340,7 @@ _PROTOTYPE(void closeall , (void));
 /*
  * IO control
  */
-_PROTOTYPE(void pushio , (struct ioarg *argp , int (*fn)(_VOID)));
+_PROTOTYPE(void pushio , (struct ioarg *argp , int (*fn)()));
 _PROTOTYPE(int remap , (int fd ));
 _PROTOTYPE(int openpipe , (int *pv ));
 _PROTOTYPE(void closepipe , (int *pv ));

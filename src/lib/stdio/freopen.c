@@ -23,7 +23,7 @@
 #define	O_TRUNC		0x020
 #define	O_APPEND	0x040
 
-int _open(const char *path, int flags);
+int _open(const char *path, int flags, ...);
 int _creat(const char *path, Mode_t mode);
 int _close(int d);
 

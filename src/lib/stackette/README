@@ -39,4 +39,4 @@ maps the caller's overlay again. The calls inside an overlay and to the root go
 straight. The image of the text is the root padded to 48K and the overlays padded
 to 16K, ack2minix.py makes it, MM reads it in pieces of 16K and the kernel maps
 the root and the overlay of the window (more than 16 pages of text mean overlays).
-The address of a static function cannot be taken in an overlay.
+A static function whose address is taken (a callback) gets a stub like the global ones.

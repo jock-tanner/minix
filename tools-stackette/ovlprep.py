@@ -17,7 +17,8 @@ name NAME.oK in the file of its own overlay.
 writes outdir/<file>.s, the changed copy of every file, and thunks.s, the stubs
 for the functions of all overlays (assembled with the root).
 
-The code of the files that are not in a group stays where it is, in .text. A
+A static function whose address is taken (a callback) is made a global one, named
+after its file, and gets a stub like the others. The code of the files that are not in a group stays where it is, in .text. A
 file is assembled from the compiler's output (ack -mstackette -c.s).
 '''
 import argparse
@@ -59,6 +60,31 @@ def functions(lines):
     return funcs - local, local
 
 
+def promote(lines, local, base):
+    '''The static functions whose address is taken (a callback) become global
+    functions, named after the file, so that they get a stub.'''
+    esc = set()
+    for line in lines:
+        if line.startswith(('.sect', '.extern')) or LABEL.match(line):
+            continue
+        if CALL.match(line):
+            continue
+        for tok in IDENT.findall(line):
+            if tok in local:
+                esc.add(tok)
+    if not esc:
+        return lines, set(), local
+    names = {t: '%s.%s' % (t, base) for t in esc}
+    pat = re.compile(r'(?<![A-Za-z_.0-9])(%s)(?![A-Za-z_.0-9])'
+                     % '|'.join(re.escape(t) for t in esc))
+    out = [pat.sub(lambda m: names[m.group(1)], x) for x in lines]
+    for i, line in enumerate(out):
+        if line.startswith(HEADER):
+            out[i + 1:i + 1] = ['.extern %s' % n for n in names.values()]
+            break
+    return out, set(names.values()), local - esc
+
+
 def rewrite(lines, k, mine, local, name):
     '''The file of the group k: the code to the section of the overlay, the
     names of its own functions apart from the stubs.'''
@@ -83,15 +109,6 @@ def rewrite(lines, k, mine, local, name):
             line = '%s%s%s%s.o%d%s' % (m.group(1), m.group(2), m.group(3),
                                       m.group(4), k, m.group(5))
         out.append(line)
-    # a static function can be called inside its file only: its address would
-    # be a window address that is good for one overlay
-    for line in out:
-        if line.startswith(('.sect', '.extern')) or LABEL.match(line):
-            continue
-        for tok in IDENT.findall(line):
-            if tok in local and not CALL.match(line):
-                sys.exit('%s: the address of the static function %s is taken'
-                         % (name, tok))
     return out
 
 
@@ -120,6 +137,9 @@ def main():
         for p in paths:
             lines = open(p).read().split('\n')
             glob, loc = functions(lines)
+            base = os.path.splitext(os.path.basename(p))[0]
+            lines, more, loc = promote(lines, loc, base)
+            glob = glob | more
             for f in glob:
                 if f in owner:
                     sys.exit('%s: %s is also in %s' % (p, f, owner[f][0]))

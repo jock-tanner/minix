@@ -23,6 +23,14 @@
 #define NOMEM_PAGE	0x4000	/* any access is refused */
 #define PERIPH_PAGE	0x8000	/* the peripherals */
 
+/* The overlays (doc: the code space has OVL_ROOT_PAGES pages of code that
+ * is always there, and a window of OVL_WIN_PAGES pages above it, where the
+ * code of one overlay at a time is mapped. A text segment of more than 16
+ * pages has the root first, then the overlays one after the other.
+ */
+#define OVL_ROOT_PAGES	12
+#define OVL_WIN_PAGES	4
+
 /* The windows of the system context (data space pages 11, 12 and 13). */
 #define WIN_SRC		11
 #define WIN_DST		12
@@ -52,6 +60,8 @@
 
 /* Traps. 1, 2, 3 are the SEND, RECEIVE and BOTH of Minix. */
 #define TRAP_KCALL	4	/* a task asks the system context for a service */
+#define TRAP_OVLCALL	5	/* a call to a function in another overlay */
+#define TRAP_OVLRET	6	/* the return from it */
 #define TRAP_SETJMP	32
 #define TRAP_LONGJMP	33
 

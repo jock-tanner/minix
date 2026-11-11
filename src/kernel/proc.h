@@ -18,7 +18,16 @@ struct proc {
 #endif /* (CHIP == INTEL) */
 
 #if (CHIP == STACKETTE)
+#define OVL_DEPTH	8	/* the nested calls between overlays */
   phys_clicks p_rpage;		/* the page of the return stack */
+  struct ovl_frame {		/* a call from one overlay to another */
+	unsigned of_rsp;	/* where its return address is, in the return stack */
+	unsigned of_ret;	/* the return address of the caller */
+	unsigned char of_caller;	/* the overlay of the caller */
+	unsigned char of_callee;	/* the overlay of the callee */
+  } p_ovl[OVL_DEPTH];
+  unsigned char p_obank;	/* the overlay in the code window */
+  unsigned char p_odepth;	/* the number of frames in p_ovl */
 #endif
 
 #if (CHIP == M68000)

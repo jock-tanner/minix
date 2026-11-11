@@ -21,6 +21,7 @@
 PRIVATE struct proc *loaded;	/* the process whose map is in the user MMU */
 
 FORWARD _PROTOTYPE( void loadmap, (struct proc *rp)			);
+FORWARD _PROTOTYPE( void ovl_window, (struct proc *rp)			);
 FORWARD _PROTOTYPE( void interrupt_entry, (int irq)			);
 FORWARD _PROTOTYPE( void fault_entry, (struct proc *rp, int f)		);
 FORWARD _PROTOTYPE( void trap_entry, (struct proc *rp, int n)		);
@@ -28,6 +29,9 @@ FORWARD _PROTOTYPE( void do_kcall, (struct proc *rp)			);
 FORWARD _PROTOTYPE( void do_setjmp, (struct proc *rp)			);
 FORWARD _PROTOTYPE( void do_longjmp, (struct proc *rp)			);
 FORWARD _PROTOTYPE( void upush, (struct proc *rp, unsigned v)		);
+FORWARD _PROTOTYPE( void do_ovlcall, (struct proc *rp)			);
+FORWARD _PROTOTYPE( void do_ovlret, (struct proc *rp)			);
+FORWARD _PROTOTYPE( void ovl_prune, (struct proc *rp, unsigned rsp)	);
 
 /*===========================================================================*
  *				window					     *
@@ -151,6 +155,19 @@ register struct proc *rp;
 }
 
 /*===========================================================================*
+ *				ovl_window				     *
+ *===========================================================================*/
+PRIVATE void ovl_window(rp)
+struct proc *rp;
+{
+/* Map the overlay p_obank of the process in the code window of the user MMU. */
+  register unsigned i, phys;
+
+  phys = rp->p_map[T].mem_phys + OVL_ROOT_PAGES + rp->p_obank * OVL_WIN_PAGES;
+  for (i = 0; i < OVL_WIN_PAGES; i++) UMMU(SP_CODE, OVL_ROOT_PAGES + i) = phys + i;
+}
+
+/*===========================================================================*
  *				loadmap					     *
  *===========================================================================*/
 PRIVATE void loadmap(rp)
@@ -175,9 +192,15 @@ struct proc *rp;
   }
   n = rp->p_map[T].mem_len;
   phys = rp->p_map[T].mem_phys;
-  for (i = 0; i < n; i++) {
-	*code++ = phys;
-	phys++;
+  if (n > 16) {
+	/* overlays: the root, and the overlay of the window */
+	for (i = 0; i < OVL_ROOT_PAGES; i++) *code++ = phys++;
+	ovl_window(rp);
+  } else {
+	for (i = 0; i < n; i++) {
+		*code++ = phys;
+		phys++;
+	}
   }
   n = rp->p_map[D].mem_len;
   phys = rp->p_map[D].mem_phys;
@@ -291,11 +314,109 @@ int n;
 	}
 	upush(rp, r);
 	break;
+  case TRAP_OVLCALL:	do_ovlcall(rp);		break;
+  case TRAP_OVLRET:	do_ovlret(rp);		break;
   case TRAP_KCALL:	do_kcall(rp);		break;
   case TRAP_SETJMP:	do_setjmp(rp);		break;
   case TRAP_LONGJMP:	do_longjmp(rp);		break;
   default:
 	upush(rp, E_BAD_FCN);
+  }
+}
+
+/*===========================================================================*
+ *				do_ovlcall, do_ovlret			     *
+ *===========================================================================*/
+/* A function in an overlay is called through a stub in the root: the stub is
+ * the instruction `trap $OVLCALL` followed by three words, the overlay, the
+ * address of the function in the window, and the address of the stub that
+ * does the return (`trap $OVLRET`). The call that got to the stub has pushed
+ * its return address: the kernel keeps it, puts the address of the return
+ * stub in its place, and goes on in the function, with its overlay mapped. The
+ * return stub brings the overlay of the caller and the return address back.
+ * Nothing is left on the stacks, the function sees a call that went straight
+ * to it. A call to the root, or in the same overlay, needs none of this.
+ */
+PRIVATE unsigned cread(rp, addr)
+struct proc *rp;
+unsigned addr;
+{
+/* A word of the root, in the code space of a process. */
+  unsigned *w;
+
+  if (addr >= OVL_ROOT_PAGES * PAGE_SIZE) return(0xffff);
+  w = window(WIN_USER, rp->p_map[T].mem_phys + (addr >> PAGE_SHIFT));
+  return(w[(addr & (PAGE_SIZE - 1)) >> 1]);
+}
+
+PRIVATE void do_ovlcall(rp)
+struct proc *rp;
+{
+  unsigned pc, bank, target, stub, rsp;
+  struct ovl_frame *f;
+
+  pc = rp->p_reg.pc;
+  bank = cread(rp, pc);
+  target = cread(rp, pc + 2);
+  stub = cread(rp, pc + 4);
+  if (rp->p_map[T].mem_len <= 16
+	|| bank >= (rp->p_map[T].mem_len - OVL_ROOT_PAGES) / OVL_WIN_PAGES
+	|| rp->p_odepth >= OVL_DEPTH) {
+	fault_entry(rp, 2);
+	return;
+  }
+  rsp = rp->p_reg.rsp;
+  f = &rp->p_ovl[rp->p_odepth++];
+  f->of_rsp = rsp;
+  f->of_ret = rread(rp, rsp);
+  f->of_caller = rp->p_obank;
+  f->of_callee = bank;
+  rwrite(rp, rsp, stub);
+  if (rp->p_obank != bank) {
+	rp->p_obank = bank;
+	ovl_window(rp);
+  }
+  rp->p_reg.pc = target;
+}
+
+PRIVATE void do_ovlret(rp)
+struct proc *rp;
+{
+  struct ovl_frame *f;
+
+  if (rp->p_odepth == 0) {
+	fault_entry(rp, 2);
+	return;
+  }
+  f = &rp->p_ovl[--rp->p_odepth];
+  if (rp->p_reg.rsp != f->of_rsp + 4) {	/* not the return of that call */
+	fault_entry(rp, 2);
+	return;
+  }
+  if (rp->p_obank != f->of_caller) {
+	rp->p_obank = f->of_caller;
+	ovl_window(rp);
+  }
+  rp->p_reg.pc = f->of_ret;
+}
+
+/* After a longjmp to the return stack level rsp: the calls deeper than that
+ * are gone, and the overlay in the window is the one of the innermost call that
+ * is left.
+ */
+PRIVATE void ovl_prune(rp, rsp)
+struct proc *rp;
+unsigned rsp;
+{
+  unsigned bank;
+
+  if (rp->p_map[T].mem_len <= 16) return;
+  while (rp->p_odepth > 0 && rp->p_ovl[rp->p_odepth - 1].of_rsp < rsp)
+	rp->p_odepth--;
+  bank = rp->p_odepth > 0 ? rp->p_ovl[rp->p_odepth - 1].of_callee : 0;
+  if (rp->p_obank != bank) {
+	rp->p_obank = bank;
+	ovl_window(rp);
   }
 }
 
@@ -385,6 +506,7 @@ struct proc *rp;
   rp->p_reg.fp = pfp;
   rp->p_reg.rsp = rsp;
   rp->p_reg.sp = psp;
+  ovl_prune(rp, rsp);
   (void) uwrite(rp, psp, val);
 }
 

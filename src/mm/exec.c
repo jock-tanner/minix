@@ -26,7 +26,7 @@
 #include "mproc.h"
 #include "param.h"
 
-FORWARD _PROTOTYPE( int new_mem, (struct mproc *sh_mp, vir_bytes text_bytes,
+FORWARD _PROTOTYPE( int new_mem, (struct mproc *sh_mp, phys_bytes text_bytes,
 		vir_bytes data_bytes, vir_bytes bss_bytes,
 		vir_bytes stk_bytes, phys_bytes tot_bytes)		);
 FORWARD _PROTOTYPE( void patch_ptr, (char stack[ARG_MAX], vir_bytes base) );
@@ -34,7 +34,7 @@ FORWARD _PROTOTYPE( int insert_arg, (char stack[ARG_MAX],
 		vir_bytes *stk_bytes, char *arg, int replace)		);
 FORWARD _PROTOTYPE( char *patch_stack, (int fd, char stack[ARG_MAX],
 		vir_bytes *stk_bytes, char *script)			);
-FORWARD _PROTOTYPE( int read_header, (int fd, int *ft, vir_bytes *text_bytes,
+FORWARD _PROTOTYPE( int read_header, (int fd, int *ft, phys_bytes *text_bytes,
 		vir_bytes *data_bytes, vir_bytes *bss_bytes,
 		phys_bytes *tot_bytes, long *sym_bytes, vir_clicks sc,
 		vir_bytes *pc)						);
@@ -58,7 +58,8 @@ PUBLIC int do_exec()
   static char mbuf[ARG_MAX];	/* buffer for stack and zeroes */
   static char name_buf[PATH_MAX]; /* the name of the file to exec */
   char *new_sp, *name, *basename;
-  vir_bytes src, dst, text_bytes, data_bytes, bss_bytes, stk_bytes, vsp;
+  vir_bytes src, dst, data_bytes, bss_bytes, stk_bytes, vsp;
+  phys_bytes text_bytes;	/* with overlays more than 64K */
   phys_bytes tot_bytes;		/* total space for program, including gap */
   long sym_bytes;
   vir_clicks sc;
@@ -188,7 +189,7 @@ PRIVATE int read_header(fd, ft, text_bytes, data_bytes, bss_bytes,
 						tot_bytes, sym_bytes, sc, pc)
 int fd;				/* file descriptor for reading exec file */
 int *ft;			/* place to return ft number */
-vir_bytes *text_bytes;		/* place to return text size */
+phys_bytes *text_bytes;		/* place to return text size */
 vir_bytes *data_bytes;		/* place to return initialized data size */
 vir_bytes *bss_bytes;		/* place to return bss size */
 phys_bytes *tot_bytes;		/* place to return total size */
@@ -250,7 +251,7 @@ vir_bytes *pc;			/* program entry point (initial PC) */
   *ft = ( (hdr.a_flags & A_SEP) ? SEPARATE : 0);    /* separate I & D or not */
 
   /* Get text and data sizes. */
-  *text_bytes = (vir_bytes) hdr.a_text;	/* text size in bytes */
+  *text_bytes = hdr.a_text;		/* text size in bytes */
   *data_bytes = (vir_bytes) hdr.a_data;	/* data size in bytes */
   *bss_bytes  = (vir_bytes) hdr.a_bss;	/* bss size in bytes */
   *tot_bytes  = hdr.a_total;		/* total bytes to allocate for prog */
@@ -283,7 +284,7 @@ vir_bytes *pc;			/* program entry point (initial PC) */
  *===========================================================================*/
 PRIVATE int new_mem(sh_mp, text_bytes, data_bytes,bss_bytes,stk_bytes,tot_bytes)
 struct mproc *sh_mp;		/* text can be shared with this process */
-vir_bytes text_bytes;		/* text segment size in bytes */
+phys_bytes text_bytes;		/* text segment size in bytes */
 vir_bytes data_bytes;		/* size of initialized data in bytes */
 vir_bytes bss_bytes;		/* size of bss in bytes */
 vir_bytes stk_bytes;		/* size of initial stack segment in bytes */
@@ -554,6 +555,34 @@ phys_bytes seg_bytes0;		/* how much is to be transferred? */
 
   new_fd = (proc << 7) | (seg << 5) | fd;
   ubuf_ptr = (char *) ((vir_bytes) sp->mem_vir << CLICK_SHIFT);
+
+#if (CHIP == STACKETTE)
+  if (seg == T && rw == 0 && seg_bytes0 > 0xffffL) {
+	/* A text of more than 64K, root and overlays: the addresses of a
+	 * file system call are 16 bits, so it is read in pieces of 16K, each
+	 * of them at the address 0 of the segment, the memory map of the
+	 * kernel moved on the way.
+	 */
+	phys_clicks save_phys = sp->mem_phys;
+	vir_clicks save_len = sp->mem_len;
+	phys_clicks done = 0;
+
+	while (seg_bytes != 0) {
+		bytes = MIN(0x4000L, seg_bytes);
+		sp->mem_phys = save_phys + done;
+		sp->mem_len = (bytes + CLICK_SIZE - 1) >> CLICK_SHIFT;
+		sys_newmap(proc, mproc[proc].mp_seg);
+		r = read(new_fd, (char *) 0, bytes);
+		if (r != bytes) break;
+		done += (phys_clicks) (bytes >> CLICK_SHIFT);
+		seg_bytes -= bytes;
+	}
+	sp->mem_phys = save_phys;
+	sp->mem_len = save_len;
+	sys_newmap(proc, mproc[proc].mp_seg);
+	return;
+  }
+#endif
 
   while (seg_bytes != 0) {
 	bytes = MIN((INT_MAX / BLOCK_SIZE) * BLOCK_SIZE, seg_bytes);

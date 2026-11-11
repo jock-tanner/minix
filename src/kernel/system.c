@@ -370,6 +370,8 @@ register message *m_ptr;	/* pointer to request message */
   rp->p_reg.mbp = 0;
   rp->p_reg.midx = 0;
   rp->p_reg.psw = INIT_PSW;
+  rp->p_obank = 0;		/* and no overlay calls */
+  rp->p_odepth = 0;
 #endif
 #if (CHIP == INTEL)		/* wipe extra LDT entries */
   memset(&rp->p_ldt[EXTRA_LDT_INDEX], 0,

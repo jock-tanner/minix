@@ -124,6 +124,10 @@ PUBLIC struct dmap dmap[] = {
   DT(1,                ctty_opcl,  ctty_io,  TTY)          /* 5 = /dev/tty   */
   DT(ENABLE_PRINTER,   gen_opcl,   gen_io,   PRINTER)      /* 6 = /dev/lp    */
 
+#if (MACHINE == STKT)
+  DT(1,                no_dev,     0,        ANY)          /* 7 = /dev/ip    */
+#endif
+
 #if (MACHINE == IBM_PC)
   DT(1,                no_dev,     0,        ANY)          /* 7 = /dev/ip    */
   DT(NR_CTRLRS >= 2,   gen_opcl,   gen_io,   CTRLR(1))     /* 8 = /dev/c1    */

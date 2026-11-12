@@ -41,6 +41,9 @@ _PROTOTYPE( void map_dmp, (void)					);
 _PROTOTYPE( void p_dmp, (void)						);
 _PROTOTYPE( void reg_dmp, (struct proc *rp)				);
 
+/* stackette/enc28j60.c */
+_PROTOTYPE( void enc28j60_task, (void)				);
+
 /* dp8390.c */
 _PROTOTYPE( void dp8390_task, (void)					);
 _PROTOTYPE( void dp8390_dump, (void)					);

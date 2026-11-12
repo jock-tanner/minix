@@ -17,7 +17,7 @@
  * tasks.
  */
 
-#define TTY		(DP8390 - 1)
+#define TTY		(ENC28J60 - 1)
 				/* terminal I/O class */
 #	define CANCEL       0	/* general req to force a task to cancel */
 #	define HARD_INT     2	/* fcn code for all hardware interrupts */
@@ -32,6 +32,7 @@
 #	define TTY_EXIT	   11	/* a process group leader has exited */	
 #	define SUSPEND	 -998	/* used in interrupts when tty has no data */
 
+#define ENC28J60	(DP8390 - ENABLE_ENC28J60)
 #define DP8390		(RTL8139 - ENABLE_DP8390)
 #define RTL8139		(SB16 - ENABLE_RTL8139)
 				/* networking tasks */

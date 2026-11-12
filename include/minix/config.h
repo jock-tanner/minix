@@ -94,6 +94,7 @@
 #define DMA_SECTORS        1	/* DMA buffer size (must be >= 1) */
 
 /* Enable or disable networking drivers. */
+#define ENABLE_ENC28J60	 (MACHINE == STKT)	/* enable the Stackette ENC28J60 ethernet driver */
 #define ENABLE_DP8390	 0	/* enable DP8390 ethernet driver */
 #define   ENABLE_WDETH     1	/*   add Western Digital WD80x3 */
 #define   ENABLE_NE2000    1	/*   add Novell NE1000/NE2000 */

@@ -18,7 +18,7 @@ CC="$ACK/bin/ack -mstackette -O -D_MINIX -D_POSIX_SOURCE -I$HERE/../../../includ
 objs=
 for f in $HERE/boot $KDIR/main $KDIR/proc $KDIR/system $KDIR/clock $KDIR/memory $KDIR/driver \
 		$KDIR/misc $KDIR/tty $KDIR/dmp $KDIR/table $KDIR/printer \
-		$HERE/floppy $HERE/start $HERE/mpx $HERE/klib $HERE/irq $HERE/uart; do
+		$HERE/floppy $HERE/enc28j60 $HERE/start $HERE/mpx $HERE/klib $HERE/irq $HERE/uart; do
 	b=$(basename $f)
 	$CC -c.o -o $b.o $f.c 2>$b.err || { cat $b.err; exit 1; }
 	objs="$objs $b.o"

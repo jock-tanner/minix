@@ -15,7 +15,7 @@ $CC -c.o -o o/main.o $here/main.c || exit 1
 for f in ova ovb; do $CC -c.s -o s/$f.s $here/$f.c || exit 1; done
 python3 $M/tools-stackette/ovlprep.py -o p -t p/ovl_thunks.s g0 s/ova.s + g1 s/ovb.s || exit 1
 for f in p/*.s; do $S/bin/ack -mstackette -c.o -o o/$(basename $f .s).o $f || exit 1; done
-$S/lib/ack/em_led -a0:2 -a1:2 -a2:2 -a3:2 -a4:2 -a5:2 -b1:0 -b4:0xc000 -b5:0xc000 -o ovltest.out \
+$S/lib/ack/em_led -a0:2 -a1:2 -a2:2 -a3:2 -a4:2 -a5:2 -a6:2 -b1:0 -b5:0xc000 -b6:0xc000 -o ovltest.out \
   $L/crtso.o o/main.o o/ovl_thunks.o o/ova.o o/ovb.o $L/libc.a $L/libm.a \
   $S/share/ack/stackette/libem.a $S/share/ack/stackette/libfp.a $S/share/ack/stackette/libend.a || exit 1
 python3 $M/tools-stackette/ack2minix.py ovltest.out -o ovltest --stack 0x2000

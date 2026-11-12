@@ -6,10 +6,11 @@ space) into a Minix a.out executable (include/a.out.h, the short form).
 
 The file is the 32 byte header, the text, then the data space image (the rom
 followed by the initialized data). The bss is not stored: a_bss counts it.
-a_total is the memory of the data segment, with the bss and the stack, rounded
+a_total is the memory of the data segment, with the bss, the heap (--heap, for
+brk, and a click of the safety margin of MM) and the stack, rounded
 up to a page, and the stack is at its end; chmem changes it.
 
-    python ack2minix.py prog.out -o prog [--stack BYTES]
+    python ack2minix.py prog.out -o prog [--stack BYTES] [--heap BYTES]
 '''
 import argparse
 import struct
@@ -44,7 +45,7 @@ def contents(sect, d):
     return base, d[foff:foff + flen] + bytes(size - flen)
 
 
-def build(d, stack):
+def build(d, stack, heap=0):
     sects = read_out(d)
     tbase, text = contents(sects[TEXT], d)
     rbase, rom = contents(sects[ROM], d)
@@ -76,7 +77,7 @@ def build(d, stack):
     elif len(text) > 0x10000:
         sys.exit(f'the code has {len(text):#x} bytes, the limit is 0x10000: use overlays')
     bss = bsize
-    total = len(image) + bss + stack
+    total = len(image) + bss + heap + stack
     total = (total + PAGE - 1) // PAGE * PAGE
     if total > 0x10000:
         sys.exit(f'the data segment needs {total:#x} bytes, the limit is 0x10000')
@@ -94,8 +95,9 @@ def main():
     ap.add_argument('infile')
     ap.add_argument('-o', '--output', required=True)
     ap.add_argument('--stack', type=lambda x: int(x, 0), default=0x2000)
+    ap.add_argument('--heap', type=lambda x: int(x, 0), default=0)
     a = ap.parse_args()
-    out, t, d, b, total = build(open(a.infile, 'rb').read(), a.stack)
+    out, t, d, b, total = build(open(a.infile, 'rb').read(), a.stack, a.heap)
     open(a.output, 'wb').write(out)
     print(f'text {t}, data {d}, bss {b}, total {total}', file=sys.stderr)
 

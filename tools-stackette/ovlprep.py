@@ -92,7 +92,8 @@ def rewrite(lines, k, mine, local, name):
     declared = False
     for line in lines:
         if line.startswith(HEADER) and not declared:
-            sects = ''.join('; .sect .ovl%d' % i for i in range(k + 1))
+            # the section 4 is .end of the library, the overlays come after it
+            sects = '; .sect .end' + ''.join('; .sect .ovl%d' % i for i in range(k + 1))
             line = HEADER + sects + line[len(HEADER):]
             declared = True
         m = SECT.match(line)

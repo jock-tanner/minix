@@ -979,7 +979,10 @@ message *m_ptr;			/* pointer to request message */
 
   switch (request) {
   case SYSSIGNON: {
-	struct systaskinfo info;
+	/* The buffers of vir_copy(SYSTASK, ...) are static: a local variable is
+	 * on the data stack of the kernel, which is not in its D segment.
+	 */
+	PRIVATE struct systaskinfo info;
 
 	/* Make this process a server. */
 	if (!priv || !isuserp(pp)) return(EPERM);
@@ -993,9 +996,9 @@ message *m_ptr;			/* pointer to request message */
 
   case SYSGETENV: {
 	/* Obtain a kernel environment string, or simply all of it. */
-	struct sysgetenv sysgetenv;
+	PRIVATE struct sysgetenv sysgetenv;
 	phys_bytes src, dst;
-	char key[32];
+	PRIVATE char key[32];
 	char *val;
 	size_t len;
 
@@ -1036,7 +1039,7 @@ PRIVATE int do_puts(m_ptr)
 message *m_ptr;			/* pointer to request message */
 {
 /* Print a string for a server. */
-  char c;
+  PRIVATE char c;
   vir_bytes src;
   int count;
 

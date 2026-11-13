@@ -14,6 +14,7 @@ Copyright 1995 Philip Homburg
 #include "io.h"
 #include "ip.h"
 #endif
+#include "ip.h"	/* prototypes needed even when CRAMPED: callee pops */
 #include "sr.h"
 #include "assert.h"
 #include "tcp.h"

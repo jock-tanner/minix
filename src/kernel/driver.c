@@ -315,7 +315,7 @@ message *mp;			/* pointer to ioctl request */
 /* Carry out a partition setting/getting request. */
   struct device *dv;
   phys_bytes user_phys, entry_phys;
-  struct partition entry;
+  static struct partition entry;	/* static: data stack is not in D */
 
   if (mp->REQUEST != DIOCSETP && mp->REQUEST != DIOCGETP) return(ENOTTY);
 

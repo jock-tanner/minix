@@ -320,6 +320,12 @@ _PROTOTYPE( void micro_start, (struct micro_state *msp)			);
 _PROTOTYPE( unsigned long micro_elapsed, (struct micro_state *msp)	);
 _PROTOTYPE( void micro_delay, (unsigned long usecs)			);
 #define milli_delay(n)	micro_delay((n) * 1000UL)
+/* stackette/mpx.c */
+_PROTOTYPE( int rpush, (struct proc *rp, reg_t value)			);
+_PROTOTYPE( int uwrite, (struct proc *rp, vir_bytes addr, reg_t value)	);
+/* pty.c */
+_PROTOTYPE( void do_pty, (struct tty *tp, message *m_ptr)		);
+_PROTOTYPE( void pty_init, (struct tty *tp)				);
 #endif /* (CHIP == STACKETTE) */
 
 #if (CHIP == M68000)

@@ -334,7 +334,7 @@ tty_t *tp;
  */
   pty_t *pp = tp->tty_priv;
   phys_bytes user_phys;
-  char c;
+  PRIVATE char c;		/* static: see tty.c */
 
   if (pp->state & PTY_CLOSED) {
 	if (tp->tty_inleft > 0) {

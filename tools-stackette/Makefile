@@ -60,6 +60,11 @@ $(eval $(call comp,simple,$(M)/src/commands/simple,-I$(M)/src/commands/simple -I
 $(eval $(call comp,inet,$(M)/src/inet,-I$(M)/src/inet -I$(M)/src/inet/generic -I$(M)/src))
 $(eval $(call comp,inet_generic,$(M)/src/inet/generic,-I$(M)/src/inet -I$(M)/src/inet/generic -I$(M)/src))
 $(W)/simple/ls.o: CC += -D__minix=1
+$(eval $(call comp,telnetd,$(M)/src/commands/telnetd,-I$(M)/src/commands/telnetd -I$(M)/src))
+$(eval $(call comp,telnet,$(M)/src/commands/telnet,-I$(M)/src/commands/telnet -I$(M)/src))
+$(eval $(call comp,rlogind,$(M)/src/commands/rlogind,-I$(M)/src/commands/rlogind -I$(M)/src))
+$(eval $(call comp,ftp,$(M)/src/commands/ftp,-I$(M)/src/commands/ftp -I$(M)/src))
+$(eval $(call comp,ftpd,$(M)/src/commands/ftpd,-I$(M)/src/commands/ftpd -I$(M)/src))
 
 $(W)/init/init.o: $(M)/src/tools/init.c $(HDRS)
 	@mkdir -p $(@D)
@@ -87,7 +92,21 @@ $(W)/bin/ethtest: $(W)/ethtest/ethtest.o $(LINKDEP)
 	@mkdir -p $(@D)
 	$(MKPROC) $@ $< -- --stack 0x2000 >/dev/null
 
-SIMPLE := cat cp date mkdir pwd sync rmdir ls echo head wc chmod kill touch uname sleep
+SIMPLE := cat cp date mkdir pwd sync rmdir ls echo chmod kill touch uname sleep
+# the network commands (one source file each), installed in /usr/bin
+NETSIMPLE := ifconfig add_route ping hostaddr host tcpd rdate login
+$(addprefix $(W)/bin/,$(NETSIMPLE)): $(W)/bin/%: $(W)/simple/%.o $(LINKDEP)
+	@mkdir -p $(@D)
+	$(MKPROC) $@ $< -- --stack 0x4000 >/dev/null
+# multi-file network commands: telnetd telnet rlogind ftp ftpd
+NETMULTI := telnetd telnet rlogind ftp ftpd
+define netlink
+$(W)/bin/$(1): $$($(1)_OBJ) $$(LINKDEP)
+	@mkdir -p $$(@D)
+	$$(MKPROC) $$@ $$($(1)_OBJ) -- --stack 0x4000 >/dev/null
+endef
+$(foreach c,$(NETMULTI),$(eval $(call netlink,$(c))))
+
 $(addprefix $(W)/bin/,$(SIMPLE)): $(W)/bin/%: $(W)/simple/%.o $(LINKDEP)
 	@mkdir -p $(@D)
 	$(MKPROC) $@ $< -- --stack $(if $(filter cp,$*),0x6000,0x2000) >/dev/null
@@ -99,21 +118,31 @@ $(W)/inetovl/inet.aout: $(inet_OBJ) $(inet_generic_OBJ) $(TOOLS)/mkinet.sh $(TOO
 # --- the root file system: rm, mv and ln are copies of cp
 
 ROOTBIN := $(SIMPLE) sh ethtest
+# The flash holds 1 MiB, so only the commands needed to bring the network up
+# and to log in over it are in the image by default; add more with e.g.
+#   make ... NET='ifconfig ping tcpd telnetd login add_route telnet'
+# (the whole set is $(NETSIMPLE) $(NETMULTI), about 700 KiB more than fits).
+NET ?= ifconfig ping tcpd telnetd login
+USRBIN := $(NET)
 root.img: $(W)/root.img
-$(W)/root.stamp: $(addprefix $(W)/bin/,$(ROOTBIN)) $(W)/inetovl/inet.aout $(wildcard $(TOOLS)/root/etc/*)
+$(W)/root.stamp: $(addprefix $(W)/bin/,$(ROOTBIN) $(USRBIN)) $(W)/inetovl/inet.aout $(wildcard $(TOOLS)/root/etc/*)
 	rm -rf $(W)/root
 	mkdir -p $(W)/root/bin $(W)/root/etc $(W)/root/dev $(W)/root/usr/adm $(W)/root/usr/bin $(W)/root/tmp
 	cp $(addprefix $(W)/bin/,$(ROOTBIN)) $(W)/root/bin/
+	cp $(addprefix $(W)/bin/,$(USRBIN)) $(W)/root/usr/bin/
 	cp $(W)/inetovl/inet.aout $(W)/root/bin/inet
 	for l in rm mv ln; do cp $(W)/bin/cp $(W)/root/bin/$$l; done
 	cp $(TOOLS)/root/etc/* $(W)/root/etc/
-	chmod 755 $(W)/root/bin/*
+	: > $(W)/root/usr/adm/wtmp; : > $(W)/root/etc/utmp
+	chmod 755 $(W)/root/bin/* $(W)/root/usr/bin/*
 	touch $@
 $(W)/root.img: $(W)/root.stamp $(TOOLS)/mkminixfs.py
 	python3 $(TOOLS)/mkminixfs.py -o $@ \
 	  --dev /dev/console:c:4:0:0620 --dev /dev/ram:b:1:0:0600 --dev /dev/null:c:1:3:0666 \
 	  --dev /dev/mem:c:1:1:0640 --dev /dev/tty:c:5:0:0666 --dev /dev/tty00:c:4:16:0620 \
-	  --dev /dev/log:c:4:15:0222 --dev /dev/ip:c:7:0:0600 $(W)/root
+	  --dev /dev/log:c:4:15:0222 --dev /dev/ip:c:7:0:0600 \
+	  $(foreach n,0 1 2 3,--dev /dev/ttyp$(n):c:4:$(shell expr 128 + $(n)):0666 --dev /dev/ptyp$(n):c:4:$(shell expr 192 + $(n)):0666) \
+	  $(W)/root
 
 # --- the kernel and the flash image
 

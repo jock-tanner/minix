@@ -114,7 +114,11 @@
 #define NR_CONS            2	/* # system consoles (1 to 8) */
 #endif
 #define	NR_RS_LINES	   0	/* # rs232 terminals (0 to 4) */
+#if (MACHINE == STKT)
+#define	NR_PTYS		   4	/* # pseudo terminals (0 to 64) */
+#else
 #define	NR_PTYS		   0	/* # pseudo terminals (0 to 64) */
+#endif
 
 
 /*===========================================================================*

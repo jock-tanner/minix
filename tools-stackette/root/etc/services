@@ -1,0 +1,6 @@
+echo		7/tcp
+ftp-data	20/tcp
+ftp		21/tcp
+telnet		23/tcp
+login		513/tcp
+shell		514/tcp

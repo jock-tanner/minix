@@ -349,7 +349,7 @@ message *m_ptr;			/* pointer to message sent to task */
  */
 
   int r;
-  union {
+  PRIVATE union {		/* static: vir2phys of a stack local is wrong */
 	int i;
 #if ENABLE_SRCCOMPAT
 	struct sgttyb sg;

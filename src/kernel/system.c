@@ -532,11 +532,15 @@ message *m_ptr;			/* pointer to request message */
 {
 /* Handle sys_sendsig, POSIX-style signal */
 
-  struct sigmsg smsg;
+  /* static: on Stackette locals live on the data stack, which phys_copy
+   * cannot address through vir2phys() */
+  static struct sigmsg smsg;
   register struct proc *rp;
   phys_bytes src_phys, dst_phys;
-  struct sigcontext sc, *scp;
-  struct sigframe fr, *frp;
+  static struct sigcontext sc;
+  struct sigcontext *scp;
+  static struct sigframe fr;
+  struct sigframe *frp;
 
   rp = proc_addr(m_ptr->PROC1);
   assert(isuserp(rp));
@@ -619,7 +623,7 @@ register message *m_ptr;
  * signalled process can resume execution
  */
 
-  struct sigcontext sc;
+  static struct sigcontext sc;	/* static: see do_sendsig */
   register struct proc *rp;
   phys_bytes src_phys;
 

@@ -17,7 +17,7 @@ cd "$W"
 CC="$ACK/bin/ack -mstackette -O -D_MINIX -D_POSIX_SOURCE -I$HERE/../../../include -I$KDIR -I$KDIR/.."
 objs=
 for f in $HERE/boot $KDIR/main $KDIR/proc $KDIR/system $KDIR/clock $KDIR/memory $KDIR/driver \
-		$KDIR/misc $KDIR/tty $KDIR/dmp $KDIR/table $KDIR/printer \
+		$KDIR/misc $KDIR/tty $KDIR/pty $KDIR/dmp $KDIR/table $KDIR/printer \
 		$HERE/floppy $HERE/enc28j60 $HERE/start $HERE/mpx $HERE/klib $HERE/irq $HERE/uart; do
 	b=$(basename $f)
 	$CC -c.o -o $b.o $f.c 2>$b.err || { cat $b.err; exit 1; }

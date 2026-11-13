@@ -38,9 +38,16 @@ as_dir() {	# dir: every .s file of $LIB/dir
 	done
 }
 for d in ansi posix other stdio syslib math fphook stackette; do cc_dir $d; done
-# the one's complement checksum of the network code
+# the network library; hton.c is replaced by stackette/hton.c (the byte order
+# of the machine is known there)
 mkdir -p "$OUT/ip"
-(cd "$OUT/ip" && $CC -I"$LIB/ip" -c.o "$LIB/ip/oneC_sum.c") || { echo "FAILED: ip/oneC_sum.c"; fail=1; }
+for f in "$LIB"/ip/*.c; do
+	b=$(basename "$f" .c)
+	[ $b = hton ] && continue
+	if ! (cd "$OUT/ip" && $CC -DNDEBUG -I"$LIB/ip" -c.o "$f" >/dev/null 2>"$b.err"); then
+		echo "FAILED: ip/$b.c (see $OUT/ip/$b.err)"; fail=1
+	else rm -f "$OUT/ip/$b.err"; fi
+done
 as_dir syscall
 as_dir stackette
 
@@ -52,7 +59,7 @@ mkdir -p "$OUT/ackc"
 $ACK/bin/aal rc "$OUT/libc.a" "$OUT"/ansi/*.o "$OUT"/posix/*.o "$OUT"/other/*.o \
 	"$OUT"/stdio/*.o "$OUT"/syscall/*.o "$OUT"/fphook/fphook.o \
 	"$OUT"/stackette/sendrec.o "$OUT"/stackette/brksize.o \
-	"$OUT"/stackette/hton.o "$OUT"/ip/oneC_sum.o "$OUT"/stackette/setjmp.o "$OUT"/stackette/setjmps.o "$OUT"/stackette/sigreturn.o \
+	"$OUT"/stackette/hton.o "$OUT"/ip/*.o "$OUT"/stackette/setjmp.o "$OUT"/stackette/setjmps.o "$OUT"/stackette/sigreturn.o \
 	"$OUT"/ackc/frexp.o "$OUT"/ackc/modf.o
 $ACK/bin/aal rc "$OUT/libsys.a" "$OUT"/syslib/*.o "$OUT"/stackette/int64.o
 $ACK/bin/aal rc "$OUT/libm.a" "$OUT"/math/*.o

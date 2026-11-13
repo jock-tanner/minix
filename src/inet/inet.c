@@ -49,6 +49,22 @@ from the Ethernet task:
 #include <unistd.h>
 #include <sys/svrctl.h>
 
+/* These are not declared by the headers that this file includes. Without the
+ * declaration a call gets an int result, which the caller pops: wrong for a
+ * void function when the callee pops its own arguments (Stackette).
+ */
+void arp_prep(void);
+void psip_prep(void);
+void ip_prep(void);
+void tcp_prep(void);
+void udp_prep(void);
+void sr_init(void);
+void arp_init(void);
+void psip_init(void);
+void ip_init(void);
+void tcp_init(void);
+void udp_init(void);
+
 #include "mq.h"
 #include "proto.h"
 #include "generic/type.h"

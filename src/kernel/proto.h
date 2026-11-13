@@ -15,6 +15,9 @@ _PROTOTYPE( void esdi_winchester_task, (void)				);
 _PROTOTYPE( void ps_winchester_task, (void)				);
 _PROTOTYPE( void xt_winchester_task, (void)				);
 
+/* stackette/ide_wini.c */
+_PROTOTYPE( void ide_winchester_task, (void)				);
+
 /* aha1540.c */
 _PROTOTYPE( void aha1540_scsi_task, (void)				);
 

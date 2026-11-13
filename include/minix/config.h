@@ -65,7 +65,7 @@
 
 /* Number of controller tasks (/dev/cN device classes). */
 #if (MACHINE == STKT)
-#define NR_CTRLRS          0
+#define NR_CTRLRS          1
 #else
 #define NR_CTRLRS          2
 #endif
@@ -77,6 +77,7 @@
 #define ENABLE_SWAP	   (MACHINE != STKT)
 
 /* Include or exclude device drivers.  Set to 1 to include, 0 to exclude. */
+#define ENABLE_IDE_WINI    (MACHINE == STKT)	/* the Stackette IDE host (CF card) */
 #define ENABLE_AT_WINI     (MACHINE != STKT)	/* enable AT winchester driver */
 #define   ENABLE_ATAPI     (MACHINE != STKT)	/*   add ATAPI support to AT driver */
 #define ENABLE_BIOS_WINI   (MACHINE != STKT)	/* enable BIOS winchester driver */

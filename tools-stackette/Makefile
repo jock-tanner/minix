@@ -8,6 +8,12 @@
 # Makefile's tree). ACK's tools (lua, flex, ...) must be in the PATH if the ACK
 # needs them. Other targets:
 #   make root.img   the root file system only
+#   make cf.img     the disk image of the CompactFlash card (an MBR and the root
+#                   file system in the partition 1), for ROOT=cf; write it with
+#                   dd if=cf.img of=/dev/sdX bs=1M
+#   ROOT=cf         the root file system is on the card (CF_MB MiB, 32 by
+#                   default, with idepio=4 in the kernel if IDEPIO=4) and
+#                   not in the flash, which then holds the kernel only
 #   make inet       $(W)/inetovl/inet.aout
 #   make clean      removes $(W)
 # The objects depend on the .c file and on all the headers (a header change
@@ -33,8 +39,26 @@ HDRS := $(shell find $(M)/include $(M)/src -maxdepth 1 -name '*.h') \
 KSRC := $(shell find $(M)/src/kernel $(M)/include -name '*.[chs]')
 LIBSRC := $(shell find $(M)/src/lib -name '*.[chs]')
 
-.PHONY: all root.img inet clean
+ROOT ?= ram
+CF_MB ?= 32
+.PHONY: all root.img cf.img inet clean
+ifeq ($(ROOT),cf)
+all: $(W)/flash.bin $(W)/cf.img
+KDEFS := -DROOT_CF
+ifeq ($(IDEPIO),4)
+KDEFS += -DIDEPIO_4
+endif
+KROOT :=
+MKFS_ARGS := --blocks $(shell expr $(CF_MB) \* 1024)
+else
 all: $(W)/flash.bin
+KDEFS :=
+KROOT := ROOTFS=$(W)/root.img
+MKFS_ARGS :=
+endif
+cf.img: $(W)/cf.img
+$(W)/cf.img: $(W)/root.img $(TOOLS)/mkmbr.py
+	python3 $(TOOLS)/mkmbr.py -o $@ $(W)/root.img
 
 # --- the library
 
@@ -137,17 +161,18 @@ $(W)/root.stamp: $(addprefix $(W)/bin/,$(ROOTBIN) $(USRBIN)) $(W)/inetovl/inet.a
 	chmod 755 $(W)/root/bin/* $(W)/root/usr/bin/*
 	touch $@
 $(W)/root.img: $(W)/root.stamp $(TOOLS)/mkminixfs.py
-	python3 $(TOOLS)/mkminixfs.py -o $@ \
+	python3 $(TOOLS)/mkminixfs.py -o $@ $(MKFS_ARGS) \
 	  --dev /dev/console:c:4:0:0620 --dev /dev/ram:b:1:0:0600 --dev /dev/null:c:1:3:0666 \
 	  --dev /dev/mem:c:1:1:0640 --dev /dev/tty:c:5:0:0666 --dev /dev/tty00:c:4:16:0620 \
 	  --dev /dev/log:c:4:15:0222 --dev /dev/ip:c:7:0:0600 \
+	  $(foreach n,0 1 2 3 4,--dev /dev/hd$(n):b:3:$(n):0600) \
 	  $(foreach n,0 1 2 3,--dev /dev/ttyp$(n):c:4:$(shell expr 128 + $(n)):0666 --dev /dev/ptyp$(n):c:4:$(shell expr 192 + $(n)):0666) \
 	  $(W)/root
 
 # --- the kernel and the flash image
 
-$(W)/flash.bin: $(KSRC) $(W)/root.img $(W)/mm.aout $(W)/fs.aout $(W)/init.aout $(OUT)/libc.a $(TOOLS)/mkflash.py
-	ACK=$(ACK) OUT=$(OUT) W=$(W)/kernel ROOTFS=$(W)/root.img \
+$(W)/flash.bin: $(KSRC) $(if $(KROOT),$(W)/root.img) $(W)/mm.aout $(W)/fs.aout $(W)/init.aout $(OUT)/libc.a $(TOOLS)/mkflash.py
+	ACK=$(ACK) OUT=$(OUT) W=$(W)/kernel $(KROOT) KDEFS="$(KDEFS)" \
 	  sh $(M)/src/kernel/stackette/build.sh $(W)/mm.aout.out $(W)/fs.aout.out $(W)/init.aout.out
 	cp $(W)/kernel/flash.bin $@
 

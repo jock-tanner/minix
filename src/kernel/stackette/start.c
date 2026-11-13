@@ -27,8 +27,16 @@ PRIVATE char aout_table[(MAX_IMAGES + 1) * A_MINHDR];
  * one. What MM and FS ask for with sys_getenv().
  */
 PRIVATE char k_environ[] =
+#ifdef ROOT_CF
+	"rootdev=769\0"		/* major 3 (c0), minor 1: the partition 1 of the CF card */
+#else
 	"rootdev=256\0"		/* major 1 (memory), minor 0: the RAM disk */
+#endif
 	"ramimagedev=260\0"		/* minor 4: the image in the flash */
+	"c0=ide\0"		/* the disk task: the CF card */
+#ifdef IDEPIO_4
+	"idepio=4\0"		/* PIO mode 4 on the card */
+#endif
 	"ramsize=0\0"
 	"processor=0\0";
 

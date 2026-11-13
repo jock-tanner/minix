@@ -133,6 +133,10 @@ PRIVATE struct drivertab {
 	task_t *driver;
 } drivertab[] = {
 
+#if ENABLE_IDE_WINI
+	{ "ide",	ide_winchester_task	},
+#endif
+
 #if ENABLE_AT_WINI
 	{ "at",		at_winchester_task	},
 #endif

@@ -99,6 +99,10 @@ $(W)/ethtest/ethtest.o: $(TOOLS)/ethtest/ethtest.c $(HDRS)
 	@mkdir -p $(@D)
 	@echo CC $<
 	@$(CC) -c.o -o $@ $< 2>$@.err || { cat $@.err; rm -f $@; false; }
+$(W)/iotest/iotest.o: $(TOOLS)/iotest/iotest.c $(HDRS)
+	@mkdir -p $(@D)
+	@echo CC $<
+	@$(CC) -c.o -o $@ $< 2>$@.err || { cat $@.err; rm -f $@; false; }
 
 # --- programs (mkproc.sh makes X and X.out, the linked file the kernel image takes)
 
@@ -113,6 +117,9 @@ $(W)/bin/sh: $(sh_OBJ) $(LINKDEP)
 	@mkdir -p $(@D)
 	$(MKPROC) $@ $(sh_OBJ) -- --stack 0x2000 >/dev/null
 $(W)/bin/ethtest: $(W)/ethtest/ethtest.o $(LINKDEP)
+	@mkdir -p $(@D)
+	$(MKPROC) $@ $< -- --stack 0x2000 >/dev/null
+$(W)/bin/iotest: $(W)/iotest/iotest.o $(LINKDEP)
 	@mkdir -p $(@D)
 	$(MKPROC) $@ $< -- --stack 0x2000 >/dev/null
 
@@ -141,7 +148,7 @@ $(W)/inetovl/inet.aout: $(inet_OBJ) $(inet_generic_OBJ) $(TOOLS)/mkinet.sh $(TOO
 
 # --- the root file system: rm, mv and ln are copies of cp
 
-ROOTBIN := $(SIMPLE) sh ethtest
+ROOTBIN := $(SIMPLE) sh ethtest iotest
 # The flash holds 1 MiB, so only the commands needed to bring the network up
 # and to log in over it are in the image by default; add more with e.g.
 #   make ... NET='ifconfig ping tcpd telnetd login add_route telnet'
@@ -172,7 +179,13 @@ $(W)/root.img: $(W)/root.stamp $(TOOLS)/mkminixfs.py
 
 # --- the kernel and the flash image
 
-$(W)/flash.bin: $(KSRC) $(if $(KROOT),$(W)/root.img) $(W)/mm.aout $(W)/fs.aout $(W)/init.aout $(OUT)/libc.a $(TOOLS)/mkflash.py
+# the kernel options (KDEFS) are a dependency too
+$(W)/kdefs: FORCE
+	@mkdir -p $(W)
+	@echo '$(KDEFS)' | cmp -s - $@ || echo '$(KDEFS)' > $@
+.PHONY: FORCE
+FORCE:
+$(W)/flash.bin: $(W)/kdefs $(KSRC) $(if $(KROOT),$(W)/root.img) $(W)/mm.aout $(W)/fs.aout $(W)/init.aout $(OUT)/libc.a $(TOOLS)/mkflash.py
 	ACK=$(ACK) OUT=$(OUT) W=$(W)/kernel $(KROOT) KDEFS="$(KDEFS)" \
 	  sh $(M)/src/kernel/stackette/build.sh $(W)/mm.aout.out $(W)/fs.aout.out $(W)/init.aout.out
 	cp $(W)/kernel/flash.bin $@

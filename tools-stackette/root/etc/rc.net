@@ -8,4 +8,5 @@ sleep 2
 /usr/bin/add_route -g $GW
 
 /usr/bin/tcpd telnet /usr/bin/telnetd &
+/usr/bin/tcpd ftp /usr/bin/ftpd &
 echo network up: $IP

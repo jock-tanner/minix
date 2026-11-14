@@ -118,7 +118,7 @@ $(W)/bin/ethtest: $(W)/ethtest/ethtest.o $(LINKDEP)
 
 SIMPLE := cat cp date mkdir pwd sync rmdir ls echo chmod kill touch uname sleep
 # the network commands (one source file each), installed in /usr/bin
-NETSIMPLE := ifconfig add_route ping hostaddr host tcpd rdate login
+NETSIMPLE := ifconfig add_route ping hostaddr host tcpd rdate login passwd su chown
 $(addprefix $(W)/bin/,$(NETSIMPLE)): $(W)/bin/%: $(W)/simple/%.o $(LINKDEP)
 	@mkdir -p $(@D)
 	$(MKPROC) $@ $< -- --stack 0x4000 >/dev/null
@@ -146,7 +146,7 @@ ROOTBIN := $(SIMPLE) sh ethtest
 # and to log in over it are in the image by default; add more with e.g.
 #   make ... NET='ifconfig ping tcpd telnetd login add_route telnet'
 # (the whole set is $(NETSIMPLE) $(NETMULTI), about 700 KiB more than fits).
-NET ?= ifconfig ping tcpd telnetd login add_route
+NET ?= ifconfig ping tcpd telnetd login add_route passwd su chown ftpd ftp telnet
 USRBIN := $(NET)
 root.img: $(W)/root.img
 $(W)/root.stamp: $(addprefix $(W)/bin/,$(ROOTBIN) $(USRBIN)) $(W)/inetovl/inet.aout $(wildcard $(TOOLS)/root/etc/*)
@@ -159,6 +159,7 @@ $(W)/root.stamp: $(addprefix $(W)/bin/,$(ROOTBIN) $(USRBIN)) $(W)/inetovl/inet.a
 	cp $(TOOLS)/root/etc/* $(W)/root/etc/
 	: > $(W)/root/usr/adm/wtmp; : > $(W)/root/etc/utmp
 	chmod 755 $(W)/root/bin/* $(W)/root/usr/bin/*
+	for f in su passwd; do test -f $(W)/root/usr/bin/$$f && chmod 4755 $(W)/root/usr/bin/$$f; done; true
 	touch $@
 $(W)/root.img: $(W)/root.stamp $(TOOLS)/mkminixfs.py
 	python3 $(TOOLS)/mkminixfs.py -o $@ $(MKFS_ARGS) \

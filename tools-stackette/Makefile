@@ -146,7 +146,7 @@ ROOTBIN := $(SIMPLE) sh ethtest
 # and to log in over it are in the image by default; add more with e.g.
 #   make ... NET='ifconfig ping tcpd telnetd login add_route telnet'
 # (the whole set is $(NETSIMPLE) $(NETMULTI), about 700 KiB more than fits).
-NET ?= ifconfig ping tcpd telnetd login
+NET ?= ifconfig ping tcpd telnetd login add_route
 USRBIN := $(NET)
 root.img: $(W)/root.img
 $(W)/root.stamp: $(addprefix $(W)/bin/,$(ROOTBIN) $(USRBIN)) $(W)/inetovl/inet.aout $(wildcard $(TOOLS)/root/etc/*)

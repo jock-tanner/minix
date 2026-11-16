@@ -44,3 +44,37 @@ _wcopy:
 	ld.push [wsave]
 	st.pop sp
 	retn $3
+
+! insw(buf, words) and outsw(buf, words): the data register of the IDE host
+! (0xf080) to and from buf, in words (REP INSW and REP OUTSW). A string
+! instruction goes through the port and the parameter stack, a second one
+! through the stack and the buffer; the stack takes 2 * words bytes meanwhile.
+! The first word read is the deepest one, hence the pre-decrement for the buffer.
+
+.define _insw, _outsw
+
+_insw:
+	ld.push [pfp+2]
+	shl tos, $1
+	st.pop midx
+	ld.push [0xf080]*
+	ld.push [pfp+2]
+	shl tos, $1
+	st.pop midx
+	ld.push [pfp+0]
+	st.pop mbp
+	st.pop [mbp+--midx]*
+	retn $2
+
+_outsw:
+	ld.push [pfp+2]
+	shl tos, $1
+	st.pop midx
+	ld.push [pfp+0]
+	st.pop mbp
+	ld.push [mbp+--midx]*
+	ld.push [pfp+2]
+	shl tos, $1
+	st.pop midx
+	st.pop [0xf080]*
+	retn $2

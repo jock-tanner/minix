@@ -188,7 +188,7 @@ PRIVATE int w_identify()
   if (w_command(CMD_IDENTIFY, 0, 0L) != OK) return(ERR);
   if ((st = w_wait(STATUS_BSY | STATUS_DRQ, STATUS_DRQ)) < 0) return(ERR);
   if (st & STATUS_ERR) return(ERR);
-  for (i = 0; i < SECTOR_SIZE / 2; i++) sec[i] = IDE(R_DATA);
+  insw(sec, SECTOR_SIZE / 2);
   if (w_wait(STATUS_BSY, 0) < 0) return(ERR);
 
   if (!(sec[49] & 0x0200)) {
@@ -299,7 +299,7 @@ vir_bytes addr;
 	if (!(st & STATUS_DRQ)) return(ERR);
 	if (opcode == DEV_GATHER) {
 		p = sec;
-		for (i = 0; i < SECTOR_SIZE / 2; i++) *p++ = IDE(R_DATA);
+		insw(sec, SECTOR_SIZE / 2);
 		if (vir_copy(w_task, (vir_bytes) sec, proc_nr, addr,
 					(vir_bytes) SECTOR_SIZE) != OK)
 			return(EFAULT);
@@ -308,7 +308,7 @@ vir_bytes addr;
 					(vir_bytes) SECTOR_SIZE) != OK)
 			return(EFAULT);
 		p = sec;
-		for (i = 0; i < SECTOR_SIZE / 2; i++) IDE(R_DATA) = *p++;
+		outsw(sec, SECTOR_SIZE / 2);
 	}
 	addr += SECTOR_SIZE;
 	count--;

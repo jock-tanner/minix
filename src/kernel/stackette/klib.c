@@ -52,7 +52,16 @@ phys_bytes src, dst, n;
 	if (((so | dof | chunk) & 1) == 0) {
 		s = WINDOW(WIN_SRC) + (so >> 1);
 		d = WINDOW(WIN_DST) + (dof >> 1);
-		for (i = chunk >> 1; i > 0; i--) *d++ = *s++;
+		if (chunk >= 16 && phys_page(src) < RAM_PAGES) {
+			/* the stack space sees the source page too: one
+			 * string instruction pops it into the destination.
+			 * (The source is written, see wcopy: not the flash.) */
+			SMMU(SP_PSTACK, WIN_SRC) = phys_page(src);
+			wcopy(s, d, chunk);
+			s[(chunk >> 1) - 1] = d[(chunk >> 1) - 1];
+		} else {
+			for (i = chunk >> 1; i > 0; i--) *d++ = *s++;
+		}
 	} else {
 		sb = BWINDOW(WIN_SRC) + so;
 		db = BWINDOW(WIN_DST) + dof;

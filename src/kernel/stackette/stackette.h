@@ -87,6 +87,7 @@ struct kc_copy {
 };
 
 _PROTOTYPE( int kcall, (int code, void *args)				);
+_PROTOTYPE( void wcopy, (unsigned *src, unsigned *dst, unsigned n)	);
 _PROTOTYPE( void ctxrun, (void)						);
 _PROTOTYPE( void phys_copy_sys, (phys_bytes src, phys_bytes dst,
 							phys_bytes n)	);

@@ -153,21 +153,21 @@ ROOTBIN := $(SIMPLE) sh ethtest iotest
 # and to log in over it are in the image by default; add more with e.g.
 #   make ... NET='ifconfig ping tcpd telnetd login add_route telnet'
 # (the whole set is $(NETSIMPLE) $(NETMULTI), about 700 KiB more than fits).
-NET ?= ifconfig ping tcpd telnetd login getty add_route passwd su chown ftpd ftp telnet
+NET ?= ifconfig ping tcpd telnetd login add_route passwd su chown ftpd ftp telnet
 USRBIN := $(NET)
 root.img: $(W)/root.img
-$(W)/root.stamp: $(addprefix $(W)/bin/,$(ROOTBIN) $(USRBIN) pwdauth) $(W)/inetovl/inet.aout $(wildcard $(TOOLS)/root/etc/*)
+$(W)/root.stamp: $(addprefix $(W)/bin/,$(ROOTBIN) $(USRBIN) pwdauth getty) $(W)/inetovl/inet.aout $(wildcard $(TOOLS)/root/etc/*)
 	rm -rf $(W)/root
 	mkdir -p $(W)/root/bin $(W)/root/etc $(W)/root/dev $(W)/root/usr/adm $(W)/root/usr/bin $(W)/root/tmp
 	cp $(addprefix $(W)/bin/,$(ROOTBIN)) $(W)/root/bin/
 	cp $(addprefix $(W)/bin/,$(USRBIN)) $(W)/root/usr/bin/
 	cp $(W)/inetovl/inet.aout $(W)/root/bin/inet
-	mkdir -p $(W)/root/usr/lib; cp $(W)/bin/pwdauth $(W)/root/usr/lib/pwdauth
+	mkdir -p $(W)/root/usr/lib $(W)/root/usr/sbin; cp $(W)/bin/pwdauth $(W)/root/usr/lib/pwdauth; cp $(W)/bin/getty $(W)/root/usr/sbin/getty
 	for l in rm mv ln; do cp $(W)/bin/cp $(W)/root/bin/$$l; done
 	cp $(TOOLS)/root/etc/* $(W)/root/etc/
 	: > $(W)/root/usr/adm/wtmp; : > $(W)/root/etc/utmp
 	chmod 755 $(W)/root/bin/* $(W)/root/usr/bin/*
-	chmod 4755 $(W)/root/usr/lib/pwdauth
+	chmod 755 $(W)/root/usr/sbin/getty; chmod 4755 $(W)/root/usr/lib/pwdauth
 	for f in su passwd; do test -f $(W)/root/usr/bin/$$f && chmod 4755 $(W)/root/usr/bin/$$f; done; true
 	touch $@
 $(W)/root.img: $(W)/root.stamp $(TOOLS)/mkminixfs.py

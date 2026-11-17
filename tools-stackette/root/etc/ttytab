@@ -1,1 +1,5 @@
-console minix /usr/bin/getty
+console minix /usr/sbin/getty
+ttyp0 network
+ttyp1 network
+ttyp2 network
+ttyp3 network

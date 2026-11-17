@@ -78,3 +78,71 @@ _outsw:
 	st.pop midx
 	st.pop [0xf080]*
 	retn $2
+
+! fillw(ptr, value, words): words words at ptr get the value (one string
+! instruction). seqw(ptr, first, words): the words at ptr get first, first + 1
+! and so on, as the page numbers of a map do.
+
+.define _fillw, _seqw
+
+_fillw:
+	ld.push [pfp+0]
+	add.tos [pfp+4]
+	add.tos [pfp+4]
+	st.pop mbp
+	ld.push [pfp+4]
+	add.tos [pfp+4]
+	neg tos
+	st.pop midx
+	ld.push [pfp+2]
+	st [mbp+midx++]*, tos
+	st.pop null
+	retn $3
+
+_seqw:
+	ld.push [pfp+0]
+	add.tos [pfp+4]
+	add.tos [pfp+4]
+	st.pop mbp
+	ld.push [pfp+4]
+	add.tos [pfp+4]
+	neg tos
+	st.pop midx
+	ld.push [pfp+2]
+	ld.push midx
+	cmp pop, $0
+	skip ne
+	bra seqw_done
+seqw_loop:
+	st [mbp+midx++], tos
+	add tos, $1
+	ld.push midx
+	cmp pop, $0
+	skip eq
+	bra seqw_loop
+seqw_done:
+	st.pop null
+	retn $3
+
+! copyw(dst, src, words): a copy of words, in ascending order (peripheral
+! registers too), by two string instructions through the stack.
+
+.define _copyw
+
+_copyw:
+	ld.push [pfp+4]
+	add.tos [pfp+4]
+	st.pop midx
+	ld.push [pfp+2]
+	st.pop mbp
+	ld.push [mbp+--midx]*
+	ld.push [pfp+4]
+	add.tos [pfp+4]
+	neg tos
+	st.pop midx
+	ld.push [pfp+0]
+	add.tos [pfp+4]
+	add.tos [pfp+4]
+	st.pop mbp
+	st.pop [mbp+midx++]*
+	retn $3

@@ -88,6 +88,9 @@ struct kc_copy {
 
 _PROTOTYPE( int kcall, (int code, void *args)				);
 _PROTOTYPE( void wcopy, (unsigned *src, unsigned *dst, unsigned n)	);
+_PROTOTYPE( void fillw, (unsigned *ptr, unsigned value, unsigned words)	);
+_PROTOTYPE( void seqw, (unsigned *ptr, unsigned first, unsigned words)	);
+_PROTOTYPE( void copyw, (unsigned *dst, unsigned *src, unsigned words)	);
 _PROTOTYPE( void insw, (unsigned *buf, unsigned words)	);
 _PROTOTYPE( void outsw, (unsigned *buf, unsigned words)	);
 _PROTOTYPE( void ctxrun, (void)						);

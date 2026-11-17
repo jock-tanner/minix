@@ -123,9 +123,18 @@ unsigned long div64u(i, j)
 u64_t i;
 unsigned j;
 {
-/* The quotient of 64 by 16 bits, bit by bit; the low 32 bits of it. */
+/* The quotient of 64 by 16 bits; the low 32 bits of it. A power of two is a
+ * shift, a short dividend a long division, the rest is done bit by bit.
+ */
   unsigned long q = 0, rem = 0, hi = HI(i), lo = LO(i);
   int b;
+
+  if ((j & (j - 1)) == 0 && j != 0) {
+	for (b = 0; (1 << b) != j; b++) {}
+	if (b == 0) return(lo);
+	return((lo >> b) | (hi << (32 - b)));
+  }
+  if (hi == 0) return(lo / j);
 
   for (b = 63; b >= 0; b--) {
 	rem = (rem << 1) | (b >= 32 ? (hi >> (b - 32)) & 1 : (lo >> b) & 1);

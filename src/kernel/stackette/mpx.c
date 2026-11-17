@@ -48,6 +48,23 @@ unsigned page;
 /*===========================================================================*
  *				uread, uwrite				     *
  *===========================================================================*/
+PRIVATE unsigned *uword(rp, addr)
+struct proc *rp;
+vir_bytes addr;
+{
+/* The place of the word at the virtual address (in the data space) of a
+ * process, seen through a window; NULL if it is not mapped. This is umap for
+ * one word without the long arithmetic: a click is a page.
+ */
+  struct mem_map *mp = &rp->p_map[D];
+  unsigned vc = addr >> PAGE_SHIFT;
+
+  if ((addr & 1) != 0 || vc < mp->mem_vir || vc - mp->mem_vir >= mp->mem_len)
+	return((unsigned *) NULL);
+  return(window(WIN_USER, mp->mem_phys + (vc - mp->mem_vir)) +
+					((addr & (PAGE_SIZE - 1)) >> 1));
+}
+
 PUBLIC unsigned uread(rp, addr)
 struct proc *rp;
 vir_bytes addr;
@@ -55,12 +72,9 @@ vir_bytes addr;
 /* The word at the virtual address (in the data space) of a process; 0xffff
  * if it is not mapped.
  */
-  phys_bytes pa;
-  unsigned *w;
+  unsigned *w = uword(rp, addr);
 
-  if ((addr & 1) != 0 || (pa = umap(rp, D, addr, 2)) == 0) return(0xffff);
-  w = window(WIN_USER, phys_page(pa));
-  return(w[((unsigned) pa & (PAGE_SIZE - 1)) >> 1]);
+  return(w == NULL ? 0xffff : *w);
 }
 
 PUBLIC int uwrite(rp, addr, value)
@@ -68,7 +82,6 @@ struct proc *rp;
 vir_bytes addr;
 reg_t value;
 {
-  phys_bytes pa;
   unsigned *w;
   struct kc_w kw;
 
@@ -80,9 +93,8 @@ reg_t value;
 	(void) kcall(KC_UWRITE, &kw);
 	return(kw.result);
   }
-  if ((addr & 1) != 0 || (pa = umap(rp, D, addr, 2)) == 0) return(EFAULT);
-  w = window(WIN_USER, phys_page(pa));
-  w[((unsigned) pa & (PAGE_SIZE - 1)) >> 1] = value;
+  if ((w = uword(rp, addr)) == NULL) return(EFAULT);
+  *w = value;
   return(OK);
 }
 
@@ -178,39 +190,35 @@ struct proc *rp;
  * space and the parameter stack space, the return stack page; what is not
  * mapped refuses every access. A task also sees the peripherals.
  */
-  register volatile unsigned *code = &UMMU(SP_CODE, 0);
-  register volatile unsigned *rstack = &UMMU(SP_RSTACK, 0);
-  register volatile unsigned *pstack = &UMMU(SP_PSTACK, 0);
-  register volatile unsigned *data = &UMMU(SP_DATA, 0);
+  register unsigned *code = (unsigned *) &UMMU(SP_CODE, 0);
+  register unsigned *rstack = (unsigned *) &UMMU(SP_RSTACK, 0);
+  register unsigned *pstack = (unsigned *) &UMMU(SP_PSTACK, 0);
+  register unsigned *data = (unsigned *) &UMMU(SP_DATA, 0);
   register unsigned i, n, phys;
 
-  for (i = 0; i < 16; i++) {
-	code[i] = NOMEM_PAGE;
-	rstack[i] = NOMEM_PAGE;
-	pstack[i] = NOMEM_PAGE;
-	data[i] = NOMEM_PAGE;
-  }
+  /* the runs of page numbers and of the refusal are written by string
+   * instructions (klib.s) */
   n = rp->p_map[T].mem_len;
   phys = rp->p_map[T].mem_phys;
   if (n > 16) {
 	/* overlays: the root, and the overlay of the window */
-	for (i = 0; i < OVL_ROOT_PAGES; i++) *code++ = phys++;
+	fillw(code, NOMEM_PAGE, 16);
+	seqw(code, phys, OVL_ROOT_PAGES);
 	ovl_window(rp);
   } else {
-	for (i = 0; i < n; i++) {
-		*code++ = phys;
-		phys++;
-	}
+	seqw(code, phys, n);
+	fillw(code + n, NOMEM_PAGE, 16 - n);
   }
   n = rp->p_map[D].mem_len;
+  if (n > 16) n = 16;
   phys = rp->p_map[D].mem_phys;
-  for (i = 0; i < n; i++) {
-	*data++ = phys;
-	*pstack++ = phys;
-	phys++;
-  }
+  seqw(data, phys, n);
+  seqw(pstack, phys, n);
+  fillw(data + n, NOMEM_PAGE, 16 - n);
+  fillw(pstack + n, NOMEM_PAGE, 16 - n);
+  fillw(rstack, NOMEM_PAGE, 15);
   rstack[15] = rp->p_rpage;
-  if (istaskp(rp)) UMMU(SP_DATA, 15) = PERIPH_PAGE;
+  if (istaskp(rp)) data[15] = PERIPH_PAGE;
   loaded = rp;
 }
 
@@ -230,7 +238,7 @@ PUBLIC void restart()
 	if (held_head != NIL_PROC) unhold();	/* flush the held-up interrupts */
 	rp = proc_ptr;
 	regs = (unsigned *) &rp->p_reg;
-	for (i = 0; i < NR_CTX_REGS; i++) CTX(i) = regs[i];
+	copyw((unsigned *) &CTX(0), regs, NR_CTX_REGS);
 	if (loaded != rp) loadmap(rp);
 	in_kernel = FALSE;
 	PERIPH(0xf00a) = kernel_mask;	/* the lines that are open */
@@ -238,7 +246,7 @@ PUBLIC void restart()
 	in_kernel = TRUE;
 	id = CTXID;
 	regs = (unsigned *) &rp->p_reg;
-	for (i = 0; i < NR_CTX_REGS; i++) regs[i] = CTX(i);
+	copyw(regs, (unsigned *) &CTX(0), NR_CTX_REGS);
 
 	switch (id >> 6) {
 	case ID_IRQ:	interrupt_entry(id & 63);	break;

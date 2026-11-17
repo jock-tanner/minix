@@ -125,7 +125,7 @@ $(W)/bin/iotest: $(W)/iotest/iotest.o $(LINKDEP)
 
 SIMPLE := cat cp date mkdir pwd sync rmdir ls echo chmod kill touch uname sleep
 # the network commands (one source file each), installed in /usr/bin
-NETSIMPLE := ifconfig add_route ping hostaddr host tcpd rdate login passwd su chown
+NETSIMPLE := ifconfig add_route ping hostaddr host tcpd rdate login passwd su chown getty pwdauth
 $(addprefix $(W)/bin/,$(NETSIMPLE)): $(W)/bin/%: $(W)/simple/%.o $(LINKDEP)
 	@mkdir -p $(@D)
 	$(MKPROC) $@ $< -- --stack 0x4000 >/dev/null
@@ -153,19 +153,21 @@ ROOTBIN := $(SIMPLE) sh ethtest iotest
 # and to log in over it are in the image by default; add more with e.g.
 #   make ... NET='ifconfig ping tcpd telnetd login add_route telnet'
 # (the whole set is $(NETSIMPLE) $(NETMULTI), about 700 KiB more than fits).
-NET ?= ifconfig ping tcpd telnetd login add_route passwd su chown ftpd ftp telnet
+NET ?= ifconfig ping tcpd telnetd login getty add_route passwd su chown ftpd ftp telnet
 USRBIN := $(NET)
 root.img: $(W)/root.img
-$(W)/root.stamp: $(addprefix $(W)/bin/,$(ROOTBIN) $(USRBIN)) $(W)/inetovl/inet.aout $(wildcard $(TOOLS)/root/etc/*)
+$(W)/root.stamp: $(addprefix $(W)/bin/,$(ROOTBIN) $(USRBIN) pwdauth) $(W)/inetovl/inet.aout $(wildcard $(TOOLS)/root/etc/*)
 	rm -rf $(W)/root
 	mkdir -p $(W)/root/bin $(W)/root/etc $(W)/root/dev $(W)/root/usr/adm $(W)/root/usr/bin $(W)/root/tmp
 	cp $(addprefix $(W)/bin/,$(ROOTBIN)) $(W)/root/bin/
 	cp $(addprefix $(W)/bin/,$(USRBIN)) $(W)/root/usr/bin/
 	cp $(W)/inetovl/inet.aout $(W)/root/bin/inet
+	mkdir -p $(W)/root/usr/lib; cp $(W)/bin/pwdauth $(W)/root/usr/lib/pwdauth
 	for l in rm mv ln; do cp $(W)/bin/cp $(W)/root/bin/$$l; done
 	cp $(TOOLS)/root/etc/* $(W)/root/etc/
 	: > $(W)/root/usr/adm/wtmp; : > $(W)/root/etc/utmp
 	chmod 755 $(W)/root/bin/* $(W)/root/usr/bin/*
+	chmod 4755 $(W)/root/usr/lib/pwdauth
 	for f in su passwd; do test -f $(W)/root/usr/bin/$$f && chmod 4755 $(W)/root/usr/bin/$$f; done; true
 	touch $@
 $(W)/root.img: $(W)/root.stamp $(TOOLS)/mkminixfs.py

@@ -1,1 +1,1 @@
-console minix /bin/sh
+console minix /usr/bin/getty

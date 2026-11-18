@@ -123,7 +123,7 @@ $(W)/bin/iotest: $(W)/iotest/iotest.o $(LINKDEP)
 	@mkdir -p $(@D)
 	$(MKPROC) $@ $< -- --stack 0x2000 >/dev/null
 
-SIMPLE := cat cp date mkdir pwd sync rmdir ls echo chmod kill touch uname sleep
+SIMPLE := cat cp date mkdir pwd sync rmdir ls echo chmod kill touch uname sleep dhrystone
 # the network commands (one source file each), installed in /usr/bin
 NETSIMPLE := ifconfig add_route ping hostaddr host tcpd rdate login passwd su chown getty pwdauth
 $(addprefix $(W)/bin/,$(NETSIMPLE)): $(W)/bin/%: $(W)/simple/%.o $(LINKDEP)

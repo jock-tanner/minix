@@ -96,7 +96,8 @@ PUBLIC void kmain()
   in_kernel = TRUE;
   printf("\nStackette: Minix boot\n");
 
-  /* The kernel: its text is executed in the flash. */
+  /* The kernel: its text is in the flash, and executed from the copy of it in
+   * the RAM (bootc) when it fits there. */
   header(0, (text_end + PAGE_SIZE - 1) & ~(PAGE_SIZE - 1), 0, 0,
 				KDATA_PAGES * PAGE_SIZE, FLASH_PAGE);
   code_base = (phys_bytes) FLASH_PAGE << PAGE_SHIFT;

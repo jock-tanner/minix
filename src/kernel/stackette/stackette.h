@@ -41,7 +41,9 @@
 /* The kernel's memory. */
 #define KDATA_PAGES	11	/* pages 0 to 10 of the data space */
 #define RSTACK_POOL	0x10	/* the return stacks of the process table slots */
-#define FIRST_USER_PAGE	0x40	/* the memory that MM manages starts here */
+#define SHADOW_PAGE	0x40	/* the copy of the kernel's text (boot.c) */
+#define SHADOW_PAGES	16
+#define FIRST_USER_PAGE	0x50	/* the memory that MM manages starts here */
 
 /* The registers of a context, the order of struct stackframe_s. */
 #define R_IP		0

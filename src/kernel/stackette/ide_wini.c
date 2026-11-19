@@ -225,9 +225,9 @@ PRIVATE void w_pio_mode()
   IDE(R_COUNT) = MODE_PIO_4;
   IDE(R_COMMAND) = CMD_SET_FEATURES;
   if (w_wait(STATUS_BSY, 0) < 0) return;
-  IDE(R_SETUP) = 3;		/* 25 ns, 70 ns, 120 ns */
-  IDE(R_STROBE) = 5;
-  IDE(R_RECOVER) = 0;
+  IDE(R_SETUP) = 4;		/* 25 ns, 70 ns, 120 ns, with a margin */
+  IDE(R_STROBE) = 8;
+  IDE(R_RECOVER) = 2;
 }
 
 

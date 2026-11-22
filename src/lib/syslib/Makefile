@@ -20,6 +20,7 @@ OBJECTS	= \
 	$(LIBSYS)(sys_getsp.o) \
 	$(LIBSYS)(sys_kill.o) \
 	$(LIBSYS)(sys_newmap.o) \
+	$(LIBSYS)(sys_winset.o) \
 	$(LIBSYS)(sys_oldsig.o) \
 	$(LIBSYS)(sys_sendsig.o) \
 	$(LIBSYS)(sys_sigret.o) \
@@ -71,6 +72,9 @@ $(LIBSYS)(sys_kill.o):	sys_kill.c
 
 $(LIBSYS)(sys_newmap.o):	sys_newmap.c
 	$(CC1) sys_newmap.c
+
+$(LIBSYS)(sys_winset.o):	sys_winset.c
+	$(CC1) sys_winset.c
 
 $(LIBSYS)(sys_oldsig.o):	sys_oldsig.c
 	$(CC1) sys_oldsig.c

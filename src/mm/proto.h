@@ -46,6 +46,8 @@ _PROTOTYPE( void main, (void)						);
 /* misc.c */
 _PROTOTYPE( int do_reboot, (void)					);
 _PROTOTYPE( int do_svrctl, (void)					);
+_PROTOTYPE( int do_pool, (void)						);
+_PROTOTYPE( void free_pool, (struct mproc *rmp)				);
 
 #if (MACHINE == MACINTOSH)
 _PROTOTYPE( phys_clicks start_click, (void)				);

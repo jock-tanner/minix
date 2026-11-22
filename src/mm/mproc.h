@@ -7,6 +7,10 @@
 
 EXTERN struct mproc {
   struct mem_map mp_seg[NR_SEGS];/* points to text, data, stack */
+  phys_clicks mp_pool;		/* stackette: the pool of the data window */
+  unsigned mp_plen;		/* its length in pages, 0 for none */
+  vir_clicks mp_wbase;		/* the first page of the window */
+  unsigned mp_wn;		/* the pages of the window */
   char mp_exitstatus;		/* storage for status when process exits */
   char mp_sigstatus;		/* storage for signal # for killed procs */
   pid_t mp_pid;			/* process id */

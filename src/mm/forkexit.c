@@ -39,6 +39,9 @@ PUBLIC int do_fork()
   register struct mproc *rmc;	/* pointer to child */
   int i, child_nr, t;
   phys_clicks prog_clicks, child_base;
+#if (CHIP == STACKETTE)
+  phys_clicks child_pool;
+#endif
   phys_bytes prog_bytes, parent_abs, child_abs;	/* Intel only */
 
  /* If tables might fill up during FORK, don't even start since recovery half
@@ -61,6 +64,20 @@ PUBLIC int do_fork()
   parent_abs = (phys_bytes) rmp->mp_seg[D].mem_phys << CLICK_SHIFT;
   i = sys_copy(ABS, 0, parent_abs, ABS, 0, child_abs, prog_bytes);
   if (i < 0) panic("do_fork can't copy", i);
+#if (CHIP == STACKETTE)
+  /* The pool of the data window is copied too. */
+  child_pool = 0;
+  if (rmp->mp_plen != 0) {
+	if ((child_pool = alloc_mem((phys_clicks) rmp->mp_plen)) == NO_MEM) {
+		free_mem(child_base, prog_clicks);
+		return(ENOMEM);
+	}
+	i = sys_copy(ABS, 0, (phys_bytes) rmp->mp_pool << CLICK_SHIFT, ABS, 0,
+		(phys_bytes) child_pool << CLICK_SHIFT,
+		(phys_bytes) rmp->mp_plen << CLICK_SHIFT);
+	if (i < 0) panic("do_fork can't copy the pool", i);
+  }
+#endif
 
   /* Find a slot in 'mproc' for the child process.  A slot must exist. */
   for (rmc = &mproc[0]; rmc < &mproc[NR_PROCS]; rmc++)
@@ -81,6 +98,9 @@ PUBLIC int do_fork()
   rmc->mp_seg[D].mem_phys = child_base;
   rmc->mp_seg[S].mem_phys = rmc->mp_seg[D].mem_phys + 
 			(rmp->mp_seg[S].mem_vir - rmp->mp_seg[D].mem_vir);
+#if (CHIP == STACKETTE)
+  rmc->mp_pool = child_pool;
+#endif
   rmc->mp_exitstatus = 0;
   rmc->mp_sigstatus = 0;
 
@@ -102,6 +122,10 @@ PUBLIC int do_fork()
 
   /* Report child's memory map to kernel. */
   sys_newmap(child_nr, rmc->mp_seg);
+#if (CHIP == STACKETTE)
+  if (rmc->mp_plen != 0)
+	sys_winset(child_nr, rmc->mp_pool, rmc->mp_plen, rmc->mp_wbase, rmc->mp_wn, 1);
+#endif
 
   /* Reply to child to wake it up. */
   setreply(child_nr, 0);
@@ -160,6 +184,9 @@ int exit_status;		/* the process' exit status (for parent) */
   /* Free the data and stack segments. */
   free_mem(rmp->mp_seg[D].mem_phys,
       rmp->mp_seg[S].mem_vir + rmp->mp_seg[S].mem_len - rmp->mp_seg[D].mem_vir);
+#if (CHIP == STACKETTE)
+  free_pool(rmp);
+#endif
 
   /* The process slot can only be freed if the parent has done a WAIT. */
   rmp->mp_exitstatus = (char) exit_status;

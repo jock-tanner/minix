@@ -1,5 +1,6 @@
 /* Constants used by the Memory Manager. */
 
+#define MAX_POOL	4096	/* stackette: the pages of a pool, at most */
 #define NO_MEM ((phys_clicks) 0)  /* returned by alloc_mem() with mem is up */
 
 #if (CHIP == INTEL && _WORD_SIZE == 2)

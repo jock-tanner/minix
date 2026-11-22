@@ -28,6 +28,13 @@ struct proc {
   } p_ovl[OVL_DEPTH];
   unsigned char p_obank;	/* the overlay in the code window */
   unsigned char p_odepth;	/* the number of frames in p_ovl */
+#define WIN_MAX		8	/* the pages of the data window, at most */
+  phys_clicks p_pool;		/* the pool of the data window: first page */
+  unsigned p_plen;		/* its length in pages, 0 for none */
+  unsigned p_wbase;		/* the first page of the window in the data space */
+  unsigned p_wn;		/* the pages of the window, 0 for none */
+  unsigned p_win[WIN_MAX];	/* what each of them shows: a page of the pool,
+				 * or WIN_OWN for the own page of the process */
 #endif
 
 #if (CHIP == M68000)

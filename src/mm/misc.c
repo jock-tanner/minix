@@ -122,3 +122,54 @@ PUBLIC int do_svrctl()
 	return(EINVAL);
   }
 }
+
+#if (CHIP == STACKETTE)
+/*=====================================================================*
+ *			    do_pool, free_pool				       *
+ *=====================================================================*/
+PUBLIC int do_pool()
+{
+/* pool(pages, window, wn): the process has a pool of `pages` pages of memory
+ * outside of its 64K, and a window of wn pages at the page aligned address
+ * `window`, in its data space, to look at them (kernel, TRAP_WINMAP). A
+ * second call gives it a new pool: the old contents that fit are kept. The
+ * contents of a pool are not set to zero.
+ */
+  unsigned pages = (unsigned) pool_pages, wn = (unsigned) pool_wn;
+  vir_bytes win = (vir_bytes) pool_win;
+  phys_clicks new_base = 0, old_base = mp->mp_pool;
+  unsigned old_len = mp->mp_plen, keep;
+  int r;
+
+  if (pages > MAX_POOL || wn > 8 || (pages != 0 && wn == 0)) return(EINVAL);
+  if (pages == 0) wn = 0;
+  if (wn != 0 && ((win & (CLICK_SIZE - 1)) != 0 ||
+	(win >> CLICK_SHIFT) + wn > mp->mp_seg[D].mem_len)) return(EINVAL);
+  if (pages != 0) {
+	if ((new_base = alloc_mem((phys_clicks) pages)) == NO_MEM) return(ENOMEM);
+	keep = old_len < pages ? old_len : pages;
+	if (keep != 0) {
+		r = sys_copy(ABS, 0, (phys_bytes) old_base << CLICK_SHIFT, ABS, 0,
+			(phys_bytes) new_base << CLICK_SHIFT,
+			(phys_bytes) keep << CLICK_SHIFT);
+		if (r < 0) panic("do_pool can't copy", r);
+	}
+  }
+  if (old_len != 0) free_mem(old_base, (phys_clicks) old_len);
+  mp->mp_pool = new_base;
+  mp->mp_plen = pages;
+  mp->mp_wbase = win >> CLICK_SHIFT;
+  mp->mp_wn = wn;
+  sys_winset(who, new_base, pages, win >> CLICK_SHIFT, wn, 0);
+  return(OK);
+}
+
+PUBLIC void free_pool(rmp)
+struct mproc *rmp;
+{
+/* The process is gone or has a new image: the pool is released. */
+  if (rmp->mp_plen != 0) free_mem(rmp->mp_pool, (phys_clicks) rmp->mp_plen);
+  rmp->mp_plen = 0;
+  rmp->mp_wn = 0;
+}
+#endif

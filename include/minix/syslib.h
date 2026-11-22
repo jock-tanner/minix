@@ -33,6 +33,8 @@ _PROTOTYPE( int sys_execmap, (int _proc, struct mem_map *_ptr)		);
 _PROTOTYPE( int sys_fork, (int _parent, int _child, int _pid)		);
 _PROTOTYPE( int sys_getsp, (int _proc, vir_bytes *_newsp)		);
 _PROTOTYPE( int sys_newmap, (int _proc, struct mem_map *_ptr)		);
+_PROTOTYPE( int sys_winset, (int _proc, phys_clicks _pool, unsigned _len,
+		unsigned _wbase, unsigned _wn, int _keep)	);
 _PROTOTYPE( int sys_getmap, (int _proc, struct mem_map *_ptr)		);
 _PROTOTYPE( int sys_sendsig, (int _proc, struct sigmsg *_ptr)		);
 _PROTOTYPE( int sys_oldsig, (int _proc, int _sig, sighandler_t _sighandler));

@@ -31,6 +31,7 @@ FORWARD _PROTOTYPE( void do_longjmp, (struct proc *rp)			);
 FORWARD _PROTOTYPE( void upush, (struct proc *rp, unsigned v)		);
 FORWARD _PROTOTYPE( void do_ovlcall, (struct proc *rp)			);
 FORWARD _PROTOTYPE( void do_ovlret, (struct proc *rp)			);
+FORWARD _PROTOTYPE( void do_winmap, (struct proc *rp)			);
 FORWARD _PROTOTYPE( void ovl_prune, (struct proc *rp, unsigned rsp)	);
 
 /*===========================================================================*
@@ -167,6 +168,31 @@ register struct proc *rp;
 }
 
 /*===========================================================================*
+ *				win_page, win_changed			     *
+ *===========================================================================*/
+PUBLIC phys_clicks win_page(rp, vpage)
+struct proc *rp;
+unsigned vpage;
+{
+/* The physical page that the page vpage of the data space of a process shows:
+ * a page of the pool if it is in the window and mapped there, or its own.
+ */
+  unsigned s = vpage - rp->p_wbase;
+
+  if (rp->p_wn != 0 && vpage >= rp->p_wbase && s < rp->p_wn
+					&& rp->p_win[s] != WIN_OWN)
+	return(rp->p_pool + rp->p_win[s]);
+  return(rp->p_map[D].mem_phys + (vpage - rp->p_map[D].mem_vir));
+}
+
+PUBLIC void win_changed(rp)
+struct proc *rp;
+{
+/* The pool or the window of the process are new: its map has to be loaded. */
+  if (rp == loaded) loaded = NIL_PROC;
+}
+
+/*===========================================================================*
  *				ovl_window				     *
  *===========================================================================*/
 PRIVATE void ovl_window(rp)
@@ -216,6 +242,9 @@ struct proc *rp;
   seqw(pstack, phys, n);
   fillw(data + n, NOMEM_PAGE, 16 - n);
   fillw(pstack + n, NOMEM_PAGE, 16 - n);
+  for (i = 0; i < rp->p_wn; i++)
+	if (rp->p_win[i] != WIN_OWN)
+		data[rp->p_wbase + i] = rp->p_pool + rp->p_win[i];
   fillw(rstack, NOMEM_PAGE, 15);
   rstack[15] = rp->p_rpage;
   if (istaskp(rp)) data[15] = PERIPH_PAGE;
@@ -324,6 +353,7 @@ int n;
 	break;
   case TRAP_OVLCALL:	do_ovlcall(rp);		break;
   case TRAP_OVLRET:	do_ovlret(rp);		break;
+  case TRAP_WINMAP:	do_winmap(rp);		break;
   case TRAP_KCALL:	do_kcall(rp);		break;
   case TRAP_SETJMP:	do_setjmp(rp);		break;
   case TRAP_LONGJMP:	do_longjmp(rp);		break;
@@ -406,6 +436,37 @@ struct proc *rp;
 	ovl_window(rp);
   }
   rp->p_reg.pc = f->of_ret;
+}
+
+/* winmap(slot, page, n): the n slots of the data window from `slot` show the
+ * pages `page` and on of the pool, or their own pages if page is WIN_OWN. The
+ * arguments are the three words at the frame pointer, as with send(); the
+ * result, 0 or an error, goes on the stack.
+ */
+PRIVATE void do_winmap(rp)
+struct proc *rp;
+{
+  unsigned pfp, slot, page, n, i;
+
+  pfp = rp->p_reg.fp;
+  slot = uread(rp, pfp);
+  page = uread(rp, pfp + 2);
+  n = uread(rp, pfp + 4);
+  if (rp->p_wn == 0 || n == 0 || slot >= rp->p_wn || n > rp->p_wn - slot
+	|| (page != WIN_OWN && (page >= rp->p_plen || n > rp->p_plen - page))) {
+	upush(rp, EINVAL);
+	return;
+  }
+  for (i = 0; i < n; i++) {
+	if (page == WIN_OWN) {
+		rp->p_win[slot + i] = WIN_OWN;
+		UMMU(SP_DATA, rp->p_wbase + slot + i) = win_page(rp, rp->p_wbase + slot + i);
+	} else {
+		rp->p_win[slot + i] = page + i;
+		UMMU(SP_DATA, rp->p_wbase + slot + i) = rp->p_pool + page + i;
+	}
+  }
+  upush(rp, OK);
 }
 
 /* After a longjmp to the return stack level rsp: the calls deeper than that

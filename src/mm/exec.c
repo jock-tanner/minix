@@ -361,6 +361,12 @@ phys_bytes tot_bytes;		/* total memory to allocate, including gap */
 #endif
 
   sys_newmap(who, rmp->mp_seg);   /* report new map to the kernel */
+#if (CHIP == STACKETTE)
+  if (rmp->mp_plen != 0) {	/* the pool of the old image is gone */
+	free_pool(rmp);
+	sys_winset(who, 0, 0, 0, 0, 0);
+  }
+#endif
 
   /* The old memory may have been swapped out, but the new memory is real. */
   rmp->mp_flags &= ~(WAITING|ONSWAP|SWAPIN);

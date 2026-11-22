@@ -29,6 +29,9 @@
 #define reboot_flag	mm_in.m1_i1
 #define reboot_code	mm_in.m1_p1
 #define reboot_size	mm_in.m1_i2
+#define pool_pages	mm_in.m1_i1	/* POOL: the pages of the pool */
+#define pool_wn		mm_in.m1_i2	/* the pages of the window */
+#define pool_win	mm_in.m1_p1	/* the address of the window */
 #define svrctl_req	mm_in.m2_i1
 #define svrctl_argp	mm_in.m2_p1
 

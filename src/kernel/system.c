@@ -137,6 +137,9 @@ FORWARD _PROTOTYPE( int do_getsp, (message *m_ptr) );
 FORWARD _PROTOTYPE( int do_kill, (message *m_ptr) );
 FORWARD _PROTOTYPE( int do_mem, (message *m_ptr) );
 FORWARD _PROTOTYPE( int do_newmap, (message *m_ptr) );
+#if (CHIP == STACKETTE)
+FORWARD _PROTOTYPE( int do_winset, (message *m_ptr) );
+#endif
 FORWARD _PROTOTYPE( int do_sendsig, (message *m_ptr) );
 FORWARD _PROTOTYPE( int do_sigreturn, (message *m_ptr) );
 FORWARD _PROTOTYPE( int do_endsig, (message *m_ptr) );
@@ -166,6 +169,9 @@ PUBLIC void sys_task()
 	switch (m.m_type) {	/* which system call */
 	    case SYS_FORK:	r = do_fork(&m);	break;
 	    case SYS_NEWMAP:	r = do_newmap(&m);	break;
+#if (CHIP == STACKETTE)
+	    case SYS_WINSET:	r = do_winset(&m);	break;
+#endif
 	    case SYS_GETMAP:	r = do_getmap(&m);	break;
 	    case SYS_EXEC:	r = do_exec(&m);	break;
 	    case SYS_XIT:	r = do_xit(&m);		break;
@@ -252,6 +258,38 @@ register message *m_ptr;	/* pointer to request message */
   return(OK);
 }
 
+
+#if (CHIP == STACKETTE)
+/*===========================================================================*
+ *				do_winset				     *
+ *===========================================================================*/
+PRIVATE int do_winset(m_ptr)
+message *m_ptr;
+{
+/* Handle sys_winset(): MM gives a process its pool and the window in its data
+ * space (m1_i2, m1_i3: the first page of the pool and its length, m1_p1,
+ * m1_p2: the first page of the window and its length). The slots show their
+ * own pages again, unless m1_p3 says that the process is a copy of one that
+ * shows pool pages (a fork).
+ */
+  register struct proc *rp;
+  int i, k = m_ptr->PROC1;
+
+  if (!isokprocn(k)) return(E_BAD_PROC);
+  rp = proc_addr(k);
+  rp->p_pool = m_ptr->m1_i2;
+  rp->p_plen = m_ptr->m1_i3;
+  rp->p_wbase = (unsigned) m_ptr->m1_p1;
+  rp->p_wn = (unsigned) m_ptr->m1_p2;
+  if (rp->p_wn > WIN_MAX || rp->p_wn == 0 || rp->p_plen == 0) {
+	rp->p_wn = 0;
+	rp->p_plen = 0;
+  }
+  if (m_ptr->m1_p3 == NULL) for (i = 0; i < WIN_MAX; i++) rp->p_win[i] = WIN_OWN;
+  win_changed(rp);
+  return(OK);
+}
+#endif
 
 /*===========================================================================*
  *				do_newmap				     *
@@ -1190,6 +1228,24 @@ vir_bytes bytes;		/* # of bytes to be copied */
    */
   if (bytes <= 0) return( (phys_bytes) 0);
   if (seg != T) seg = D;
+  if (seg == D && rp->p_wn != 0) {
+	/* a range that touches the window: the pages it shows, which have to
+	 * follow one another in the memory */
+	unsigned p0, p1, v, first, pg;
+
+	p0 = vir_addr >> CLICK_SHIFT;
+	p1 = (vir_addr + bytes - 1 >= vir_addr) ? (vir_addr + bytes - 1) >> CLICK_SHIFT : 0xfff0;
+	if (p0 < rp->p_map[D].mem_vir ||
+	    p1 >= rp->p_map[D].mem_vir + rp->p_map[D].mem_len) return( (phys_bytes) 0 );
+	if (p1 >= rp->p_wbase && p0 < rp->p_wbase + rp->p_wn) {
+		first = win_page(rp, p0);
+		for (v = p0 + 1; v <= p1; v++) {
+			pg = win_page(rp, v);
+			if (pg != first + (v - p0)) return( (phys_bytes) 0 );
+		}
+		return(phys_make(first, vir_addr & (CLICK_SIZE - 1)));
+	}
+  }
   pa = (phys_bytes) vir_addr + bytes - 1;
   vc = (vir_addr + bytes - 1 >= vir_addr) ? (vir_addr + bytes - 1) >> CLICK_SHIFT : 0xfff0;
   if ((vir_addr >> CLICK_SHIFT) < rp->p_map[seg].mem_vir ||

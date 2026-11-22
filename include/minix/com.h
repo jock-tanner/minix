@@ -136,6 +136,8 @@
 #	define SYS_PUTS      20	/* fcn code for sys_puts(count, buf) */
 #	define SYS_FINDPROC  21	/* fcn code for sys_findproc(name, &task_nr,
 				   flags) */
+#	define SYS_WINSET    22	/* fcn code for sys_winset(proc, pool, len,
+				   wbase, wn, keep): stackette data window */
 
 #define HARDWARE          -1	/* used as source on interrupt generated msgs*/
 

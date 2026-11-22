@@ -45,6 +45,11 @@
 #define SHADOW_PAGES	16
 #define FIRST_USER_PAGE	0x50	/* the memory that MM manages starts here */
 
+/* The data window: pages of the data space of a process that show pages of
+ * its pool (MM call POOL). WIN_MAX is in proc.h.
+ */
+#define WIN_OWN		0xffff	/* a slot that shows its own page */
+
 /* The registers of a context, the order of struct stackframe_s. */
 #define R_IP		0
 #define R_RSP		1
@@ -64,6 +69,7 @@
 #define TRAP_KCALL	4	/* a task asks the system context for a service */
 #define TRAP_OVLCALL	5	/* a call to a function in another overlay */
 #define TRAP_OVLRET	6	/* the return from it */
+#define TRAP_WINMAP	7	/* winmap(slot, page, n): show pool pages in the window */
 #define TRAP_SETJMP	32
 #define TRAP_LONGJMP	33
 
@@ -96,6 +102,8 @@ _PROTOTYPE( void copyw, (unsigned *dst, unsigned *src, unsigned words)	);
 _PROTOTYPE( void insw, (unsigned *buf, unsigned words)	);
 _PROTOTYPE( void outsw, (unsigned *buf, unsigned words)	);
 _PROTOTYPE( void ctxrun, (void)						);
+_PROTOTYPE( void win_changed, (struct proc *rp)				);
+_PROTOTYPE( phys_clicks win_page, (struct proc *rp, unsigned vpage)	);
 _PROTOTYPE( void phys_copy_sys, (phys_bytes src, phys_bytes dst,
 							phys_bytes n)	);
 _PROTOTYPE( unsigned uread, (struct proc *rp, vir_bytes addr)		);

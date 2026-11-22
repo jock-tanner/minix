@@ -58,7 +58,7 @@ mkdir -p "$OUT/ackc"
 (cd "$OUT/ackc" && $ACK/bin/aal x "$PLAT/libc.a" frexp.o modf.o)
 $ACK/bin/aal rc "$OUT/libc.a" "$OUT"/ansi/*.o "$OUT"/posix/*.o "$OUT"/other/*.o \
 	"$OUT"/stdio/*.o "$OUT"/syscall/*.o "$OUT"/fphook/fphook.o \
-	"$OUT"/stackette/sendrec.o "$OUT"/stackette/brksize.o \
+	"$OUT"/stackette/sendrec.o "$OUT"/stackette/brksize.o "$OUT"/stackette/winmap.o "$OUT"/stackette/hm.o \
 	"$OUT"/stackette/hton.o "$OUT"/ip/*.o "$OUT"/stackette/setjmp.o "$OUT"/stackette/setjmps.o "$OUT"/stackette/sigreturn.o \
 	"$OUT"/ackc/frexp.o "$OUT"/ackc/modf.o
 $ACK/bin/aal rc "$OUT/libsys.a" "$OUT"/syslib/*.o "$OUT"/stackette/int64.o

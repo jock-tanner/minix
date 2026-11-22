@@ -103,6 +103,10 @@ $(W)/iotest/iotest.o: $(TOOLS)/iotest/iotest.c $(HDRS)
 	@mkdir -p $(@D)
 	@echo CC $<
 	@$(CC) -c.o -o $@ $< 2>$@.err || { cat $@.err; rm -f $@; false; }
+$(W)/hmtest/hmtest.o: $(TOOLS)/hmtest/hmtest.c $(HDRS)
+	@mkdir -p $(@D)
+	@echo CC $<
+	@$(CC) -c.o -o $@ $< 2>$@.err || { cat $@.err; rm -f $@; false; }
 
 # --- programs (mkproc.sh makes X and X.out, the linked file the kernel image takes)
 
@@ -122,6 +126,9 @@ $(W)/bin/ethtest: $(W)/ethtest/ethtest.o $(LINKDEP)
 $(W)/bin/iotest: $(W)/iotest/iotest.o $(LINKDEP)
 	@mkdir -p $(@D)
 	$(MKPROC) $@ $< -- --stack 0x2000 >/dev/null
+$(W)/bin/hmtest: $(W)/hmtest/hmtest.o $(LINKDEP)
+	@mkdir -p $(@D)
+	$(MKPROC) $@ $< -- --stack 0x2000 --heap 0x6000 >/dev/null
 
 SIMPLE := cat cp date mkdir pwd sync rmdir ls echo chmod kill touch uname sleep dhrystone
 # the network commands (one source file each), installed in /usr/bin
@@ -148,7 +155,7 @@ $(W)/inetovl/inet.aout: $(inet_OBJ) $(inet_generic_OBJ) $(TOOLS)/mkinet.sh $(TOO
 
 # --- the root file system: rm, mv and ln are copies of cp
 
-ROOTBIN := $(SIMPLE) sh ethtest iotest
+ROOTBIN := $(SIMPLE) sh ethtest iotest hmtest
 # The flash holds 1 MiB, so only the commands needed to bring the network up
 # and to log in over it are in the image by default; add more with e.g.
 #   make ... NET='ifconfig ping tcpd telnetd login add_route telnet'

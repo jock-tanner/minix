@@ -39,6 +39,12 @@ notours:
 crtso_halt:
 	bra crtso_halt
 
+! Address 0 must not belong to an object: a NULL pointer would compare equal
+! to it and a NULL dereference would silently read or write it. The linker
+! puts .rom first and crtso.o first, so this word is at address 0.
+.sect .rom
+nullpad:
+	.data2 0
 .sect .data
 __penviron:
 	.data2 __penvp

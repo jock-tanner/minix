@@ -1,0 +1,17 @@
+# the preprocessor phase: cpp, then prune, which drops the unused declarations
+# of the headers so that the compiler fits in memory
+E=/opt/pkg/ack/lib/ack
+t=/tmp/cpp.$$
+$E/cpp.real $* > $t.i || {
+	rm -f $t.i
+	exit 1
+}
+/bin/prune $t.i $t.p
+rc=$?
+case $rc in
+0)
+	cat $t.p
+	;;
+esac
+rm -f $t.i $t.p
+exit $rc

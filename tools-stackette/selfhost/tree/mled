@@ -1,0 +1,40 @@
+# the linker phase: em_led, then the Minix a.out. The stack and the heap
+# (bytes) can be set with STACK and HEAP in the environment.
+E=/opt/pkg/ack/lib/ack
+args=
+out=
+isout=0
+for a in $*
+do
+	case $isout in
+	1)
+		out=$a
+		isout=0
+		continue
+		;;
+	esac
+	case $a in
+	-o)
+		isout=1
+		;;
+	*)
+		args="$args $a"
+		;;
+	esac
+done
+tmp=/tmp/mled.$$
+$E/em_led $args -o $tmp || exit 1
+case $STACK in
+'')
+	STACK=0x1000
+	;;
+esac
+case $HEAP in
+'')
+	HEAP=0x2000
+	;;
+esac
+$E/ack2minix $tmp -o $out --stack $STACK --heap $HEAP
+rc=$?
+rm -f $tmp
+exit $rc

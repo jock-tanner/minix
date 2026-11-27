@@ -1,0 +1,1 @@
+exec /bin/ack -mstackette -D_MINIX -D_POSIX_SOURCE -I/inc $*

@@ -1,0 +1,40 @@
+#!/bin/sh
+# Stands in for the host cc when ninja builds the ACK tools: compiles with
+# ack -mstackette instead. It keeps the generated assembly of each object in
+# $SH_S/<tool>/, from which the overlays are made. The environment (set by
+# build.sh): ACKDIR, SH_INC (stdint.h and string.h for the sources), SH_S, MINIX_INC.
+out=
+src=
+args=
+while [ $# -gt 0 ]; do
+	case "$1" in
+	-c) ;;
+	-o) out=$2; shift;;
+	-g|-Os|-O*|-fno-strict-aliasing|-Werror=*) ;;
+	-DUNREACHABLE_CODE=*|-DNORETURN=*) ;;
+	-I*|-D*) args="$args $1";;
+	*.c) src=$1;;
+	*) echo "cc wrapper: unknown option $1" >&2;;
+	esac
+	shift
+done
+case "$out" in
+*cpp.ansi*) sd=cpp;;
+*/util/opt/*) sd=opt;;
+*/+ncg/*) sd=ncg;;
+*/+as/*) sd=as;;
+*/util/ack/*) sd=ack;;
+*) sd=cemcom;;
+esac
+mkdir -p "$SH_S/$sd"
+b=$(basename "$out" .o)
+flags="-mstackette -O -DNORETURN= -DUNREACHABLE_CODE=while(1) -D_MINIX -D_POSIX_SOURCE -I$SH_INC -I$MINIX_INC"
+err=${TMPDIR:-/tmp}/selfhost-cc.$$
+trap 'rm -f $err' 0
+"$ACKDIR/bin/ack" $flags -c.s $args -o "$SH_S/$sd/$b.s" "$src" 2>$err || { cat $err >&2; exit 1; }
+cat $err >&2
+if grep -q 'implicit declaration' $err; then
+	echo "cc wrapper: implicit declaration in $src" >&2
+	exit 1
+fi
+exec "$ACKDIR/bin/ack" $flags -c.o $args -o "$out" "$src"

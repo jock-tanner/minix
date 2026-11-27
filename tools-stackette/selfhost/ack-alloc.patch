@@ -1,0 +1,71 @@
+diff -u a/lang/cem/cemcom.ansi/def.str b/lang/cem/cemcom.ansi/def.str
+--- a/lang/cem/cemcom.ansi/def.str
++++ b/lang/cem/cemcom.ansi/def.str
+@@ -42,6 +42,6 @@
+ #define REG_DEFAULT 0 /* register candidate, not declared as such */
+ #define REG_BONUS   10 /* register candidate, declared as such */
+ 
+-/* ALLOCDEF "def" 50 */
++/* ALLOCDEF "def" 10 */
+ 
+ #endif
+diff -u a/lang/cem/cemcom.ansi/expr.str b/lang/cem/cemcom.ansi/expr.str
+--- a/lang/cem/cemcom.ansi/expr.str
++++ b/lang/cem/cemcom.ansi/expr.str
+@@ -106,7 +106,7 @@
+ #define ISNAME(e)  ((e)->ex_class == Value && (e)->VL_CLASS == Name)
+ #define ISCOMMA(e) ((e)->ex_class == Oper && (e)->OP_OPER == INITCOMMA)
+ 
+-/* ALLOCDEF "expr" 20 */
++/* ALLOCDEF "expr" 10 */
+ 
+ int rank_of(int oper);
+ void dot2expr(struct expr** expp);
+diff -u a/lang/cem/cemcom.ansi/stack.str b/lang/cem/cemcom.ansi/stack.str
+--- a/lang/cem/cemcom.ansi/stack.str
++++ b/lang/cem/cemcom.ansi/stack.str
+@@ -34,7 +34,7 @@
+ 	struct idf* se_idf;
+ };
+ 
+-/* ALLOCDEF "stack_entry" 50 */
++/* ALLOCDEF "stack_entry" 10 */
+ 
+ extern struct stack_level* local_level;
+ extern int level;
+diff -u a/lang/cem/cemcom.ansi/struct.str b/lang/cem/cemcom.ansi/struct.str
+--- a/lang/cem/cemcom.ansi/struct.str
++++ b/lang/cem/cemcom.ansi/struct.str
+@@ -26,7 +26,7 @@
+ 	arith sd_offset;
+ };
+ 
+-/* ALLOCDEF "sdef" 50 */
++/* ALLOCDEF "sdef" 10 */
+ 
+ struct tag
+ { /* for struct-, union- and enum tags */
+diff -u a/lang/cem/cemcom.ansi/switch.str b/lang/cem/cemcom.ansi/switch.str
+--- a/lang/cem/cemcom.ansi/switch.str
++++ b/lang/cem/cemcom.ansi/switch.str
+@@ -37,7 +37,7 @@
+ 	writh ce_value;
+ };
+ 
+-/* ALLOCDEF "case_entry" 20 */
++/* ALLOCDEF "case_entry" 10 */
+ 
+ void code_startswitch(struct expr** expp);
+ void code_endswitch(void);
+diff -u a/lang/cem/cemcom.ansi/type.str b/lang/cem/cemcom.ansi/type.str
+--- a/lang/cem/cemcom.ansi/type.str
++++ b/lang/cem/cemcom.ansi/type.str
+@@ -95,6 +95,6 @@
+ void completed(struct type* tp);
+ int no_long_long(void);
+ 
+-/* ALLOCDEF "type" 50 */
++/* ALLOCDEF "type" 10 */
+ 
+ #endif
+\ No newline at end of file

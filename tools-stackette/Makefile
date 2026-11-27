@@ -14,6 +14,10 @@
 #   ROOT=cf         the root file system is on the card (CF_MB MiB, 32 by
 #                   default, with idepio=4 in the kernel if IDEPIO=4) and
 #                   not in the flash, which then holds the kernel only
+#   CF_INODES       the number of inodes of the root file system (1024 by
+#                   default, for ROOT=cf)
+#   EXTRA_ROOT=dir  a tree to copy into the root file system (selfhost/build.sh
+#                   makes one with the ACK tools)
 #   make inet       $(W)/inetovl/inet.aout
 #   make clean      removes $(W)
 # The objects depend on the .c file and on all the headers (a header change
@@ -41,6 +45,7 @@ LIBSRC := $(shell find $(M)/src/lib -name '*.[chs]')
 
 ROOT ?= ram
 CF_MB ?= 32
+CF_INODES ?= 1024
 .PHONY: all root.img cf.img inet clean
 ifeq ($(ROOT),cf)
 all: $(W)/flash.bin $(W)/cf.img
@@ -49,7 +54,7 @@ ifeq ($(IDEPIO),4)
 KDEFS += -DIDEPIO_4
 endif
 KROOT :=
-MKFS_ARGS := --blocks $(shell expr $(CF_MB) \* 1024)
+MKFS_ARGS := --blocks $(shell expr $(CF_MB) \* 1024) --inodes $(CF_INODES)
 else
 all: $(W)/flash.bin
 KDEFS :=
@@ -119,7 +124,7 @@ $(W)/init.aout: $(W)/init/init.o $(LINKDEP)
 	$(MKPROC) $@ $< -- --stack 0x2000 >/dev/null
 $(W)/bin/sh: $(sh_OBJ) $(LINKDEP)
 	@mkdir -p $(@D)
-	$(MKPROC) $@ $(sh_OBJ) -- --stack 0x2000 >/dev/null
+	$(MKPROC) $@ $(sh_OBJ) -- --stack 0x2000 --heap 0x4000 >/dev/null
 $(W)/bin/ethtest: $(W)/ethtest/ethtest.o $(LINKDEP)
 	@mkdir -p $(@D)
 	$(MKPROC) $@ $< -- --stack 0x2000 >/dev/null
@@ -163,7 +168,7 @@ ROOTBIN := $(SIMPLE) sh ethtest iotest hmtest
 NET ?= ifconfig ping tcpd telnetd login add_route passwd su chown ftpd ftp telnet
 USRBIN := $(NET)
 root.img: $(W)/root.img
-$(W)/root.stamp: $(addprefix $(W)/bin/,$(ROOTBIN) $(USRBIN) pwdauth getty) $(W)/inetovl/inet.aout $(wildcard $(TOOLS)/root/etc/*)
+$(W)/root.stamp: $(addprefix $(W)/bin/,$(ROOTBIN) $(USRBIN) pwdauth getty) $(W)/inetovl/inet.aout $(wildcard $(TOOLS)/root/etc/*) $(if $(EXTRA_ROOT),$(shell find $(EXTRA_ROOT) -type f))
 	rm -rf $(W)/root
 	mkdir -p $(W)/root/bin $(W)/root/etc $(W)/root/dev $(W)/root/usr/adm $(W)/root/usr/bin $(W)/root/tmp
 	cp $(addprefix $(W)/bin/,$(ROOTBIN)) $(W)/root/bin/
@@ -176,6 +181,7 @@ $(W)/root.stamp: $(addprefix $(W)/bin/,$(ROOTBIN) $(USRBIN) pwdauth getty) $(W)/
 	chmod 755 $(W)/root/bin/* $(W)/root/usr/bin/*
 	chmod 755 $(W)/root/usr/sbin/getty; chmod 4755 $(W)/root/usr/lib/pwdauth
 	for f in su passwd; do test -f $(W)/root/usr/bin/$$f && chmod 4755 $(W)/root/usr/bin/$$f; done; true
+	$(if $(EXTRA_ROOT),cp -R $(EXTRA_ROOT)/. $(W)/root/)
 	touch $@
 $(W)/root.img: $(W)/root.stamp $(TOOLS)/mkminixfs.py
 	python3 $(TOOLS)/mkminixfs.py -o $@ $(MKFS_ARGS) \

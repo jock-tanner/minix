@@ -1,0 +1,20 @@
+--- a/util/led/const.h
++++ b/util/led/const.h
+@@ -24,3 +24,6 @@
+ #define BADOFF ((ind_t)-1)
+ 
+ #endif /* __CONST_H_INCLUDED__ */
++#ifndef UNREACHABLE_CODE
++#define UNREACHABLE_CODE abort()
++#endif
+--- a/util/led/mach.h
++++ b/util/led/mach.h
+@@ -34,7 +34,7 @@
+ mems[ALLOMODL].mem_left = 64 * K;
+ mems[ALLORANL].mem_left = 8 * K;
+ #else
+-#define INCRSIZE 256
++#define INCRSIZE 128
+ mems[ALLOEMIT + 0].mem_left = 8 * K;
+ mems[ALLOEMIT + 1].mem_left = 2 * K;
+ mems[ALLOEMIT + 2].mem_left = 4 * K;

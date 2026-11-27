@@ -46,6 +46,6 @@ name led
 		(.e:{HEAD}={MINIXDIR}/crtso.o) \
 		-o > < \
 		(.ocm.bas.mod.b.c.p:{TAIL}={MINIXDIR}/libsys.a {MINIXDIR}/libc.a {MINIXDIR}/libm.a) \
-		(.e:{TAIL}={PLATFORMDIR}/libem.a {PLATFORMDIR}/libfp.a {PLATFORMDIR}/libend.a)
+		(.e:{TAIL}={PLATFORMDIR}/libfp.a {PLATFORMDIR}/libem.a {PLATFORMDIR}/libend.a)
 	linker
 end

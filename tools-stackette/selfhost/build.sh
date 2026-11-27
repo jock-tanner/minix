@@ -20,6 +20,10 @@ W=${W:-$here/build}
 mkdir -p "$W"
 W=$(cd "$W" && pwd)
 X=$W/ack
+if [ "$W" = "$MXW" ]; then
+	echo "build.sh: W and MXW must be different directories: this script removes and rewrites lib, bin and root in W" >&2
+	exit 1
+fi
 MKPROC=$M/src/lib/stackette/mkproc.sh
 OVLPREP=$M/tools-stackette/ovlprep.py
 export ACKDIR

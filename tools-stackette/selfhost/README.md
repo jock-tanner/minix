@@ -36,7 +36,9 @@ platform) and the Minix libraries (`make` in `tools-stackette` leaves them in
     ACK=/path/to/ack MXW=/path/to/minix-build W=/path/to/work sh build.sh
 
 `W` is where everything goes (default `selfhost/build`), `MXW` is the `W` of
-the Makefile (default `tools-stackette/build`). The steps:
+the Makefile (default `tools-stackette/build`). They must be different
+directories: the script replaces `lib`, `bin` and `root` in `W`, which are the
+Minix libraries, programs and root tree in `MXW`. The steps:
 
 1. `source`: `git archive HEAD` of ack, the two patches, and the host build of
    the tools, which generates the sources.

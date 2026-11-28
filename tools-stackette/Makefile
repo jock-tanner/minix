@@ -135,7 +135,7 @@ $(W)/bin/hmtest: $(W)/hmtest/hmtest.o $(LINKDEP)
 	@mkdir -p $(@D)
 	$(MKPROC) $@ $< -- --stack 0x2000 --heap 0x6000 >/dev/null
 
-SIMPLE := cat cmp cp date mkdir pwd sync rmdir ls echo chmod kill touch uname sleep dhrystone
+SIMPLE := cat cmp cp date mkdir pwd sync rmdir ls echo chmod kill touch uname sleep dhrystone fsck
 # the network commands (one source file each), installed in /usr/bin
 NETSIMPLE := ifconfig add_route ping hostaddr host tcpd rdate login passwd su chown getty pwdauth
 $(addprefix $(W)/bin/,$(NETSIMPLE)): $(W)/bin/%: $(W)/simple/%.o $(LINKDEP)
@@ -152,7 +152,7 @@ $(foreach c,$(NETMULTI),$(eval $(call netlink,$(c))))
 
 $(addprefix $(W)/bin/,$(SIMPLE)): $(W)/bin/%: $(W)/simple/%.o $(LINKDEP)
 	@mkdir -p $(@D)
-	$(MKPROC) $@ $< -- --stack $(if $(filter cp,$*),0x6000,0x2000) >/dev/null
+	$(MKPROC) $@ $< -- --stack $(if $(filter cp,$*),0x6000,0x2000) $(if $(filter fsck,$*),--heap 0xc000) >/dev/null
 
 inet: $(W)/inetovl/inet.aout
 $(W)/inetovl/inet.aout: $(inet_OBJ) $(inet_generic_OBJ) $(TOOLS)/mkinet.sh $(TOOLS)/ovlprep.py $(LINKDEP)

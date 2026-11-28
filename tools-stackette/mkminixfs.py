@@ -115,10 +115,8 @@ class Fs:
         for z in range(s.first_data - 1, s.next_zone):
             b = z - (s.first_data - 1)
             zmap[b // 8] |= 1 << (b % 8)
-        # the bits beyond the end of the device are set as mkfs does
-        for z in range(s.blocks, s.zmap_blocks * BS * 8 + s.first_data - 1):
-            b = z - (s.first_data - 1)
-            zmap[b // 8] |= 1 << (b % 8)
+        # the bits beyond the end of the device stay clear, as mkfs leaves them
+        # (fsck says they are wrong if they are set)
         s.img[(2 + s.imap_blocks) * BS:(2 + s.imap_blocks) * BS + len(zmap)] = zmap
         maxsize = (NDZ + NIND + NIND * NIND) * BS
         sb = struct.pack('<HHhhHhihhI', s.ninodes, 0, s.imap_blocks,

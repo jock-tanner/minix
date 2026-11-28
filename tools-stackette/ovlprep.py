@@ -35,10 +35,11 @@ IDENT = re.compile(r'[A-Za-z_.][A-Za-z_.0-9]*')
 
 
 def functions(lines):
-    '''The global functions of a file: the names that are .extern and have a
-    label in the text, and the local ones (for the check of their use).'''
+    '''The global functions of a file, in the order of their labels: the names
+    that are .extern and have a label in the text, and the local ones (for the
+    check of their use).'''
     ext = set()
-    funcs = set()
+    funcs = []
     local = set()
     section = None
     for line in lines:
@@ -52,28 +53,28 @@ def functions(lines):
             continue
         m = LABEL.match(line)
         if m and section == '.text' and not m.group(1).startswith('.') \
-                and m.group(1).startswith('_'):
-            funcs.add(m.group(1))
+                and m.group(1).startswith('_') and m.group(1) not in funcs:
+            funcs.append(m.group(1))
     for f in funcs:
         if f not in ext:
             local.add(f)
-    return funcs - local, local
+    return [f for f in funcs if f not in local], local
 
 
 def promote(lines, local, base):
     '''The static functions whose address is taken (a callback) become global
     functions, named after the file, so that they get a stub.'''
-    esc = set()
+    esc = []
     for line in lines:
         if line.startswith(('.sect', '.extern')) or LABEL.match(line):
             continue
         if CALL.match(line):
             continue
         for tok in IDENT.findall(line):
-            if tok in local:
-                esc.add(tok)
+            if tok in local and tok not in esc:
+                esc.append(tok)
     if not esc:
-        return lines, set(), local
+        return lines, [], local
     names = {t: '%s.%s' % (t, base) for t in esc}
     pat = re.compile(r'(?<![A-Za-z_.0-9])(%s)(?![A-Za-z_.0-9])'
                      % '|'.join(re.escape(t) for t in esc))
@@ -82,7 +83,7 @@ def promote(lines, local, base):
         if line.startswith(HEADER):
             out[i + 1:i + 1] = ['.extern %s' % n for n in names.values()]
             break
-    return out, set(names.values()), local - esc
+    return out, [names[t] for t in esc], local - set(esc)
 
 
 def rewrite(lines, k, mine, local, name):
@@ -140,18 +141,18 @@ def main():
             glob, loc = functions(lines)
             base = os.path.splitext(os.path.basename(p))[0]
             lines, more, loc = promote(lines, loc, base)
-            glob = glob | more
+            glob = glob + more
             for f in glob:
                 if f in owner:
                     sys.exit('%s: %s is also in %s' % (p, f, owner[f][0]))
                 owner[f] = (gname, k)
             files.append((k, p, lines, glob, loc))
     for k, p, lines, glob, loc in files:
-        out = rewrite(lines, k, glob, loc, p)
+        out = rewrite(lines, k, set(glob), loc, p)
         dst = os.path.join(a.outdir, os.path.basename(p))
         open(dst, 'w').write('\n'.join(out))
     thunks = [HEADER, '.sect .text', '.align 2', '__ovlret:', '\ttrap $6']
-    for f in sorted(owner):
+    for f in owner:
         k = owner[f][1]
         thunks += [
             '.extern %s' % f,

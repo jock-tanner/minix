@@ -27,5 +27,5 @@ while [ $i -lt "${OVL:-0}" ]; do
 done
 export ACKDIR=$ACK
 $ACK/lib/ack/em_led -a0:2 -a1:2 -a2:2 -a3:2 $ovlopt -b1:0 -o "$tmp" "$OUT/crtso.o" $objs \
-	"$OUT/libsys.a" "$OUT/libc.a" "$OUT/libm.a" "$PLAT/libem.a" "$PLAT/libfp.a" "$PLAT/libend.a"
+	"$OUT/libsys.a" "$OUT/libc.a" "$OUT/libm.a" "$PLAT/libfp.a" "$PLAT/libem.a" "$PLAT/libend.a"
 python3 "$TOOLS/ack2minix.py" "$tmp" -o "$target" $extra

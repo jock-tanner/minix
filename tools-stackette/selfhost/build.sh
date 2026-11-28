@@ -236,12 +236,13 @@ EOF
 	ACK=$ACKDIR OUT=$OUT sh "$MKPROC" "$L/led.aout" "$L"/o/*.o -- --stack 0x800 --heap 0xbc00
 
 	# the small tools
-	for t in prune ack2minix; do
+	for t in prune ack2minix ovlprep; do
 		mkdir -p "$W/$t"
 		ackc -I"$M/include" -o "$W/$t/$t.o" "$here/src/$t.c"
 	done
 	ACK=$ACKDIR OUT=$OUT sh "$MKPROC" "$W/prune/prune.aout" "$W/prune/prune.o" -- --stack 0x800 --heap 0x3000
-	ACK=$ACKDIR OUT=$OUT sh "$MKPROC" "$W/ack2minix/ack2minix.aout" "$W/ack2minix/ack2minix.o" -- --stack 0x800 --heap 0x1000
+	ACK=$ACKDIR OUT=$OUT sh "$MKPROC" "$W/ack2minix/ack2minix.aout" "$W/ack2minix/ack2minix.o" -- --stack 0x800 --heap 0x2000
+	ACK=$ACKDIR OUT=$OUT sh "$MKPROC" "$W/ovlprep/ovlprep.aout" "$W/ovlprep/ovlprep.o" -- --stack 0x800 --heap 0x3000
 }
 
 # the tree for the root image: the ack tree in /opt/pkg/ack, /bin/ack, /bin/cc,
@@ -265,10 +266,12 @@ step_install() {
 	cp "$W/led/led.aout" "$D/lib/ack/em_led"
 	cp "$here/tree/mled" "$D/lib/ack/mled"
 	cp "$W/ack2minix/ack2minix.aout" "$D/lib/ack/ack2minix"
+	cp "$W/ovlprep/ovlprep.aout" "$D/lib/ack/ovlprep"
 	cp "$W/ncg/ncg.aout" "$D/lib/ack/stackette/ncg"
 	cp "$W/as/as.aout" "$D/lib/ack/stackette/as"
 	cp "$W/ack/ack.aout" "$R/bin/ack"
 	cp "$here/tree/cc" "$R/bin/cc"
+	cp "$here/tree/ovlink" "$R/bin/ovlink"
 	cp "$W/prune/prune.aout" "$R/bin/prune"
 	cp -R "$M/include" "$R/inc"
 	# a test: hello.c, and hello.ref, which is hello.c linked on the host
@@ -276,6 +279,24 @@ step_install() {
 	cp "$here/test/hello.c" "$R/t/hello.c"
 	ackc -D_MINIX -D_POSIX_SOURCE -I"$M/include" -o "$W/hello/hello.o" "$here/test/hello.c" 2>/dev/null
 	ACK=$ACKDIR OUT=$OUT sh "$MKPROC" "$R/t/hello.ref" "$W/hello/hello.o" -- --stack 0x1000 --heap 0x2000
+	# a test of floating point (libfp needs libem: the order of the libraries)
+	cp "$here/test/fp.c" "$R/t/fp.c"
+	ackc -D_MINIX -D_POSIX_SOURCE -I"$M/include" -o "$W/hello/fp.o" "$here/test/fp.c" 2>/dev/null
+	ACK=$ACKDIR OUT=$OUT sh "$MKPROC" "$R/t/fp.ref" "$W/hello/fp.o" -- --stack 0x1000 --heap 0x2000
+	# a test of the overlays: ovltest (three files), and ovltest.ref, linked on the host
+	T=$M/tools-stackette/ovltest
+	mkdir -p "$R/t/ovltest" "$W/ovltest/s" "$W/ovltest/o"
+	cp "$T/main.c" "$T/ova.c" "$T/ovb.c" "$R/t/ovltest/"
+	ackc -D_MINIX -D_POSIX_SOURCE -I"$M/include" -o "$W/ovltest/o/main.o" "$T/main.c"
+	for f in ova ovb; do
+		"$ACKDIR/bin/ack" -mstackette -O -D_MINIX -D_POSIX_SOURCE -I"$M/include" -c.s -o "$W/ovltest/s/$f.s" "$T/$f.c"
+	done
+	rm -rf "$W/ovltest/p"
+	python3 "$OVLPREP" -o "$W/ovltest/p" -t "$W/ovltest/p/thunks.s" g0 "$W/ovltest/s/ova.s" + g1 "$W/ovltest/s/ovb.s"
+	for f in "$W"/ovltest/p/*.s; do
+		"$ACKDIR/bin/ack" -mstackette -c.o -o "$W/ovltest/o/$(basename "$f" .s).o" "$f"
+	done
+	ACK=$ACKDIR OUT=$OUT OVL=2 sh "$MKPROC" "$R/t/ovltest.ref" "$W/ovltest/o/thunks.o" "$W/ovltest/o/ova.o" "$W/ovltest/o/ovb.o" "$W/ovltest/o/main.o" -- --stack 0x1000 --heap 0x2000
 	chmod 755 "$D"/lib/ack/* "$D"/lib/ack/stackette/* "$R"/bin/*
 	echo "root tree: $R (make EXTRA_ROOT=$R in tools-stackette)"
 }

@@ -1,0 +1,100 @@
+# ovlink: links a program with overlays on the target.
+#
+#	ovlink -o prog [objects, libraries] -g a.s b.s -g c.s d.s ...
+#
+# The objects and libraries are the root; every -g starts an overlay group with
+# the assembly files (cc -S or -c.s) that follow it. Functions of a group are
+# called through the root, and a group must fit in 16 KiB of code. At least two
+# groups, at most ten. STACK and HEAP (bytes) are for the program, as in mled.
+# Libraries other than libc, libm are given as files.
+E=/opt/pkg/ack/lib/ack
+T=/tmp/ovlink.$$
+names="0 1 2 3 4 5 6 7 8 9"
+sects="5 6 7 8 9 10 11 12 13 14"
+out=a.out
+isout=0
+root=
+groups=
+sep=
+opt=
+ng=
+k=
+for a in $*
+do
+	case $isout in
+	1)
+		out=$a
+		isout=0
+		continue
+		;;
+	esac
+	case $a in
+	-o)
+		isout=1
+		;;
+	-g)
+		case $names in
+		'')
+			echo "ovlink: too many groups" >&2
+			exit 1
+			;;
+		esac
+		set $names
+		k=$1
+		shift
+		names=$*
+		set $sects
+		opt="$opt -a$1:2 -b$1:0xc000"
+		shift
+		sects=$*
+		groups="$groups $sep g$k"
+		sep=+
+		ng=$ng.
+		;;
+	*.s)
+		case $k in
+		'')
+			echo "ovlink: $a is before the first -g" >&2
+			exit 1
+			;;
+		esac
+		groups="$groups $a"
+		;;
+	*)
+		root="$root $a"
+		;;
+	esac
+done
+case $ng in
+'' | .)
+	echo "ovlink: at least two groups (-g)" >&2
+	exit 1
+	;;
+esac
+mkdir $T || exit 1
+$E/ovlprep -o $T -t $T/thunks.s $groups || { rm -rf $T; exit 1; }
+objs=
+(
+	cd $T
+	for f in *.s
+	do
+		/bin/ack -mstackette -c.o $f || exit 1
+	done
+) || { rm -rf $T; exit 1; }
+for f in $T/*.o
+do
+	case $f in
+	*/thunks.o)
+		;;
+	*)
+		objs="$objs $f"
+		;;
+	esac
+done
+A=/opt/pkg/ack/share/ack
+$E/mled -a0:2 -a1:2 -a2:2 -a3:2 $opt -b1:0 $A/minix/crtso.o $T/thunks.o $objs $root \
+	$A/minix/libsys.a $A/minix/libc.a $A/minix/libm.a \
+	$A/stackette/libfp.a $A/stackette/libem.a $A/stackette/libend.a -o $out
+rc=$?
+rm -rf $T
+exit $rc

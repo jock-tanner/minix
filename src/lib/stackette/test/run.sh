@@ -20,6 +20,6 @@ $ACK/bin/ack $F -c.o "$HERE/$f"
 $ACK/bin/ack $F -c.o "$HERE/harness.c"
 $ACK/bin/ack -mstackette -c.o "$HERE/start.s"
 $ACK/lib/ack/em_led -a0:2 -a1:2 -a2:2 -a3:2 -b2:0xb000 -o "$b.out" "$PLAT/boot.o" start.o "$OUT/crtso.o" "$b.o" harness.o \
-	"$OUT/libc.a" "$OUT/libsys.a" "$OUT/libm.a" "$PLAT/libem.a" "$PLAT/libfp.a" "$PLAT/libend.a"
+	"$OUT/libc.a" "$OUT/libsys.a" "$OUT/libm.a" "$PLAT/libfp.a" "$PLAT/libem.a" "$PLAT/libend.a"
 python3 "$TOOLS/ack2bin.py" "$b.out" -o "$b.bin"
 PYTHONPATH=$MODEL python3 "$TOOLS/run_model.py" "$b.bin" --steps 50000000 2>/dev/null || true

@@ -15,4 +15,6 @@ W=${W:-$here/build}
 rm -f "$MXW/root.stamp" "$MXW/root.img" "$MXW/cf.img"
 make -C "$M/tools-stackette" ACK="$ACK/.obj/staging" W="$MXW" ROOT=cf EXTRA_ROOT="$W/root" -j8
 STACKETTE=$STACKETTE python3 "$here/runmodel.py" "$MXW" \
-	'cd /t && cc -O -o hello hello.c && cmp hello hello.ref && echo SAME && ./hello'
+	'cd /t && cc -O -o hello hello.c && cmp hello hello.ref && echo SAME && ./hello' \
+	'cd /t && cc -O -o fp fp.c && cmp fp fp.ref && echo SAME && ./fp' \
+	'cd /t/ovltest && cc -O -c main.c && cc -O -c.s -o ova.s ova.c && cc -O -c.s -o ovb.s ovb.c && ovlink -o ../ovltest.new main.o -g ova.s -g ovb.s && cmp ../ovltest.new ../ovltest.ref && echo SAME && ../ovltest.new'

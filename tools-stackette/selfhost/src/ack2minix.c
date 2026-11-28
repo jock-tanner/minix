@@ -1,7 +1,9 @@
 /*
  * ack2minix: turns an ACK output file linked as a separate I&D program
  * (em_led -b1:0) into a Minix a.out executable. See tools-stackette/ack2minix.py,
- * of which this is the version for the target (without overlays).
+ * of which this is the version for the target. The sections from the fifth on
+ * that start at 0xc000 are the overlays (ovlprep): the root is padded to 0xc000
+ * and each overlay to 0x4000.
  *
  *	ack2minix prog.out -o prog [--stack BYTES] [--heap BYTES]
  */
@@ -20,6 +22,7 @@
 #define DATA 2
 #define BSS 3
 #define OVL_ROOT 0xc000L
+#define OVL_WIN 0x4000L
 #define PAGE 4096L
 
 struct sect {
@@ -29,6 +32,8 @@ struct sect {
 static FILE* fi;
 static FILE* fo;
 static unsigned char buf[1024];
+static char ibuf[1024];
+static char obuf[1024];
 
 static unsigned long rd(const unsigned char* p, int n)
 {
@@ -56,8 +61,15 @@ static void die(const char* s)
 
 static void zeros(unsigned long n)
 {
-	while (n--)
-		putc(0, fo);
+	static const unsigned char z[256];
+
+	while (n > 0)
+	{
+		size_t k = n > sizeof z ? sizeof z : (size_t)n;
+
+		fwrite(z, 1, k, fo);
+		n -= k;
+	}
 }
 
 /* the contents of a section: the file part, then zeros up to its size */
@@ -89,7 +101,7 @@ int main(int argc, char** argv)
 	unsigned long stack = 0x2000;
 	unsigned long heap = 0;
 	unsigned long textlen, image, total;
-	int nsect, i;
+	int nsect, i, novl = 0;
 
 	for (i = 1; i < argc; i++)
 	{
@@ -109,6 +121,7 @@ int main(int argc, char** argv)
 	fi = fopen(inname, "rb");
 	if (!fi)
 		die("cannot open the input");
+	setvbuf(fi, ibuf, _IOFBF, sizeof ibuf);
 	if (fread(h, 1, HEADLEN, fi) != HEADLEN)
 		die("short input");
 	nsect = (int)rd(h + 6, 2);
@@ -125,7 +138,7 @@ int main(int argc, char** argv)
 		s[i].foff = rd(e + 8, 4);
 		s[i].flen = rd(e + 12, 4);
 		if (i >= 4 && s[i].base == OVL_ROOT)
-			die("overlays are not supported here");
+			novl++;
 	}
 	if (s[TEXT].base != 0 || s[ROM].base != 0)
 		die("link with -b1:0: the text and the rom must start at 0");
@@ -134,8 +147,19 @@ int main(int argc, char** argv)
 	if (s[BSS].base != s[DATA].base + s[DATA].size)
 		die("the bss does not follow the data");
 	textlen = (s[TEXT].size + 1) & ~1UL;
-	if (textlen > 0x10000L)
-		die("the code does not fit in 64 KiB");
+	if (novl)
+	{
+		if (novl < 2)
+			die("overlays: at least two");
+		if (textlen > OVL_ROOT)
+			die("the root has more than 0xc000 bytes of code");
+		for (i = 4; i < nsect; i++)
+			if (s[i].base == OVL_ROOT && s[i].size > OVL_WIN)
+				die("an overlay has more than 0x4000 bytes");
+		textlen = OVL_ROOT + novl * OVL_WIN;
+	}
+	else if (textlen > 0x10000L)
+		die("the code does not fit in 64 KiB: use overlays");
 	image = s[ROM].size + s[DATA].size;
 	total = (image + s[BSS].size + heap + stack + PAGE - 1) / PAGE * PAGE;
 	if (total > 0x10000L)
@@ -143,6 +167,7 @@ int main(int argc, char** argv)
 	fo = fopen(outname, "wb");
 	if (!fo)
 		die("cannot create the output");
+	setvbuf(fo, obuf, _IOFBF, sizeof obuf);
 	putc(0x01, fo);
 	putc(0x03, fo);
 	putc(0x30, fo);
@@ -157,7 +182,18 @@ int main(int argc, char** argv)
 	wr(total, 4);
 	wr(0, 4);
 	copy(&s[TEXT]);
-	zeros(textlen - s[TEXT].size);
+	if (novl)
+	{
+		zeros(OVL_ROOT - s[TEXT].size);
+		for (i = 4; i < nsect; i++)
+			if (s[i].base == OVL_ROOT)
+			{
+				copy(&s[i]);
+				zeros(OVL_WIN - s[i].size);
+			}
+	}
+	else
+		zeros(textlen - s[TEXT].size);
 	copy(&s[ROM]);
 	copy(&s[DATA]);
 	fclose(fo);

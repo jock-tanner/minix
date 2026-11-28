@@ -17,9 +17,10 @@ with its own 64 KiB data space.
 | `cc` | stands in for the host `cc` while ninja's compile commands are run: it calls `ack -mstackette` and keeps the generated assembly (for the overlays) |
 | `inc/stdint.h` | the 64 bit types of the ack sources are 32 bit here |
 | `src/prune.c` | drops the declarations of the headers that nothing uses (`prune.py` is the same in Python, as a reference) |
-| `src/ack2minix.c` | the part of `ack2minix.py` that runs on the target: the linker's output to a Minix a.out |
+| `src/ack2minix.c` | the part of `ack2minix.py` that runs on the target: the linker's output to a Minix a.out, with overlays |
+| `src/ovlprep.c` | `ovlprep.py` for the target: splits the assembly of the overlay groups and writes the thunks |
 | `src/syssystem.c`, `src/maketempfile*.c`, `src/extra.c` | what the ack sources want from the system, as Minix has it |
-| `tree/` | the descr of the machine for the target, `cc`, the linker script `mled` and the preprocessor script `cpp.ansi` |
+| `tree/` | the descr of the machine for the target, `cc`, `ovlink`, the linker script `mled` and the preprocessor script `cpp.ansi` |
 | `runmodel.py` | boots an image on the model and runs shell commands |
 
 The changes to the ack sources that are the same everywhere are in the ack
@@ -79,5 +80,24 @@ the model's time (cc is slow: cemcom takes most of it) and ends with `SAME`
 - The image needs more inodes than the default (`CF_INODES`, 1024).
 - The programs are found through the path compiled into the driver,
   `/opt/pkg/ack`; the machine is `-mstackette` (`cc` is `ack -mstackette
-  -D_MINIX -D_POSIX_SOURCE -I/inc`). Overlays are not made by `ack2minix` on
-  the target: programs linked there are limited to 64 KiB of code.
+  -D_MINIX -D_POSIX_SOURCE -I/inc`).
+
+## Overlays on the target
+
+A program with more than 48 KiB of code is linked with `ovlink` (see the
+header of `tree/ovlink`): the root's objects and libraries, then the groups of
+assembly files, which `cc -c.s` writes:
+
+    cc -O -c main.c
+    cc -O -c.s -o a.s a.c
+    cc -O -c.s -o b.s b.c
+    ovlink -o prog main.o -g a.s -g b.s
+
+`ovlink` runs `ovlprep` (the overlay sections and the thunks), assembles the
+result and links it with `mled`, with the libraries of the target and the
+overlay sections (`-a5:2 -b5:0xc000`, and so on); `ack2minix` pads the root to
+0xc000 and every overlay to 0x4000. A group is at most 16 KiB of code, there are at most ten, and the root (the
+objects, the thunks, the libraries) at most 48 KiB. `/t/ovltest` is the test:
+the commands above for `main.c`, `ova.c` and `ovb.c` there must give a program
+that is the same as `/t/ovltest.ref` (the one that the host linked) and prints
+`a=1111 fp=1105 even=1 0 fork=42`.

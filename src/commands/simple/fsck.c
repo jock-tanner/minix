@@ -52,6 +52,7 @@
 #include "../../fs/type.h"
 #include <minix/fslib.h>
 #include <stdio.h>
+#include <hmem.h>
 
 #define BITSHIFT	  4	/* = log2(#bits(int)) */
 
@@ -72,9 +73,15 @@
 #define BITMASK		((1 << BITSHIFT) - 1)
 #define WORDOFBIT(b)	((b) >> BITSHIFT)
 #define POWEROFBIT(b)	(1 << ((int) (b) & BITMASK))
-#define setbit(w, b)	(w[WORDOFBIT(b)] |= POWEROFBIT(b))
-#define clrbit(w, b)	(w[WORDOFBIT(b)] &= ~POWEROFBIT(b))
-#define bitset(w, b)	(w[WORDOFBIT(b)] & POWEROFBIT(b))
+
+/* On stackette the bitmaps and the link counts are not in the 64K data space:
+ * they are blocks of the pool (<hmem.h>) that are looked at through a window
+ * of a few pages, a byte or a word at a time. A bitmap is a handle.
+ */
+#define setbit(w, b)	bm_set(w, (bit_nr) (b), 1)
+#define clrbit(w, b)	bm_set(w, (bit_nr) (b), 0)
+#define bitset(w, b)	bm_get(w, (bit_nr) (b))
+#define WINDOW_PAGES	4
 
 #define ZONE_CT 	360	/* default zones  (when making file system) */
 #define INODE_CT	 95	/* default inodes (when making file system) */
@@ -116,13 +123,13 @@ struct super_block sb;
 
 char *prog, *device;		/* program name (fsck), device name */
 int firstcnterr;		/* is this the first inode ref cnt error? */
-bitchunk_t *imap, *spec_imap;	/* inode bit maps */
-bitchunk_t *zmap, *spec_zmap;	/* zone bit maps */
-bitchunk_t *dirmap;		/* directory (inode) bit map */
+hm_t imap, spec_imap;		/* inode bit maps */
+hm_t zmap, spec_zmap;		/* zone bit maps */
+hm_t dirmap;			/* directory (inode) bit map */
 char rwbuf[BLOCK_SIZE];		/* one block buffer cache */
 block_nr thisblk;		/* block in buffer cache */
 char nullbuf[BLOCK_SIZE];	/* null buffer */
-nlink_t *count;			/* inode count */
+hm_t count;			/* inode count: an nlink_t for each inode */
 int changed;			/* has the diskette been written to? */
 struct stack {
   dir_struct *st_dir;
@@ -169,15 +176,20 @@ _PROTOTYPE(void lsuper, (void));
 _PROTOTYPE(void getsuper, (void));
 _PROTOTYPE(void chksuper, (void));
 _PROTOTYPE(void lsi, (char **clist));
-_PROTOTYPE(bitchunk_t *allocbitmap, (int nblk));
-_PROTOTYPE(void loadbitmap, (bitchunk_t *bitmap, block_nr bno, int nblk));
-_PROTOTYPE(void dumpbitmap, (bitchunk_t *bitmap, block_nr bno, int nblk));
-_PROTOTYPE(void fillbitmap, (bitchunk_t *bitmap, bit_nr lwb, bit_nr upb, char **list));
-_PROTOTYPE(void freebitmap, (bitchunk_t *p));
+_PROTOTYPE(hm_t allocbitmap, (int nblk));
+_PROTOTYPE(int bm_get, (hm_t h, bit_nr bit));
+_PROTOTYPE(void bm_set, (hm_t h, bit_nr bit, int v));
+_PROTOTYPE(int cnt_get, (unsigned ino));
+_PROTOTYPE(void cnt_add, (unsigned ino, int d));
+_PROTOTYPE(void getpool, (void));
+_PROTOTYPE(void loadbitmap, (hm_t bitmap, block_nr bno, int nblk));
+_PROTOTYPE(void dumpbitmap, (hm_t bitmap, block_nr bno, int nblk));
+_PROTOTYPE(void fillbitmap, (hm_t bitmap, bit_nr lwb, bit_nr upb, char **list));
+_PROTOTYPE(void freebitmap, (hm_t p));
 _PROTOTYPE(void getbitmaps, (void));
 _PROTOTYPE(void putbitmaps, (void));
 _PROTOTYPE(void chkword, (unsigned w1, unsigned w2, bit_nr bit, char *type, int *n, int *report));
-_PROTOTYPE(void chkmap, (bitchunk_t *cmap, bitchunk_t *dmap, bit_nr bit, block_nr blkno, int nblk, char *type));
+_PROTOTYPE(void chkmap, (hm_t cmap, hm_t dmap, bit_nr bit, block_nr blkno, int nblk, char *type));
 _PROTOTYPE(void chkilist, (void));
 _PROTOTYPE(void getcount, (void));
 _PROTOTYPE(void counterror, (Ino_t ino));
@@ -592,48 +604,89 @@ char **clist;
   }
 }
 
+/* The bit of a bitmap in the pool, and the bit set or cleared: a byte of it
+ * is in the window while it is looked at.
+ */
+int bm_get(h, bit)
+hm_t h;
+bit_nr bit;
+{
+  unsigned char *p;
+  unsigned long off = (unsigned long) bit >> 3;
+  int r;
+
+  if (h == 0) return(0);
+  if ((p = (unsigned char *) hm_lock_range(h, off, 1)) == 0) fatal("window");
+  r = (*p >> ((int) bit & 7)) & 1;
+  hm_unlock_range(h, off, 1);
+  return(r);
+}
+
+void bm_set(h, bit, v)
+hm_t h;
+bit_nr bit;
+int v;
+{
+  unsigned char *p;
+  unsigned long off = (unsigned long) bit >> 3;
+
+  if (h == 0) return;
+  if ((p = (unsigned char *) hm_lock_range(h, off, 1)) == 0) fatal("window");
+  if (v) *p |= 1 << ((int) bit & 7);
+  else *p &= ~(1 << ((int) bit & 7));
+  hm_unlock_range(h, off, 1);
+}
+
 /* Allocate `nblk' blocks worth of bitmap. */
-bitchunk_t *allocbitmap(nblk)
+hm_t allocbitmap(nblk)
 int nblk;
 {
-  register bitchunk_t *bitmap;
+  hm_t h;
 
-  bitmap = (bitchunk_t *) alloc((unsigned) nblk, BLOCK_SIZE);
-  *bitmap |= 1;
-  return(bitmap);
+  if ((h = hm_calloc((unsigned long) nblk * BLOCK_SIZE)) == 0)
+	fatal("out of memory");
+  bm_set(h, (bit_nr) 0, 1);
+  return(h);
 }
 
 /* Load the bitmap starting at block `bno' from disk. */
 void loadbitmap(bitmap, bno, nblk)
-bitchunk_t *bitmap;
+hm_t bitmap;
 block_nr bno;
 int nblk;
 {
   register i;
-  register bitchunk_t *p;
+  char *p;
 
-  p = bitmap;
-  for (i = 0; i < nblk; i++, bno++, p += WORDS_PER_BLOCK)
-	devread(btoa(bno), (char *) p, BLOCK_SIZE);
-  *bitmap |= 1;
+  for (i = 0; i < nblk; i++, bno++) {
+	if ((p = (char *) hm_lock_range(bitmap, (unsigned long) i * BLOCK_SIZE,
+					BLOCK_SIZE)) == 0) fatal("window");
+	devread(btoa(bno), p, BLOCK_SIZE);
+	hm_unlock_range(bitmap, (unsigned long) i * BLOCK_SIZE, BLOCK_SIZE);
+  }
+  bm_set(bitmap, (bit_nr) 0, 1);
 }
 
 /* Write the bitmap starting at block `bno' to disk. */
 void dumpbitmap(bitmap, bno, nblk)
-bitchunk_t *bitmap;
+hm_t bitmap;
 block_nr bno;
 int nblk;
 {
   register i;
-  register bitchunk_t *p = bitmap;
+  char *p;
 
-  for (i = 0; i < nblk; i++, bno++, p += WORDS_PER_BLOCK)
-	devwrite(btoa(bno), (char *) p, BLOCK_SIZE);
+  for (i = 0; i < nblk; i++, bno++) {
+	if ((p = (char *) hm_lock_range(bitmap, (unsigned long) i * BLOCK_SIZE,
+					BLOCK_SIZE)) == 0) fatal("window");
+	devwrite(btoa(bno), p, BLOCK_SIZE);
+	hm_unlock_range(bitmap, (unsigned long) i * BLOCK_SIZE, BLOCK_SIZE);
+  }
 }
 
 /* Set the bits given by `list' in the bitmap. */
 void fillbitmap(bitmap, lwb, upb, list)
-bitchunk_t *bitmap;
+hm_t bitmap;
 bit_nr lwb, upb;
 char **list;
 {
@@ -653,14 +706,15 @@ char **list;
 
 /* Deallocate the bitmap `p'. */
 void freebitmap(p)
-bitchunk_t *p;
+hm_t p;
 {
-  free((char *) p);
+  hm_free(p);
 }
 
 /* Get all the bitmaps used by this program. */
 void getbitmaps()
 {
+  getpool();
   imap = allocbitmap(N_IMAP);
   zmap = allocbitmap(N_ZMAP);
   spec_imap = allocbitmap(N_IMAP);
@@ -702,24 +756,29 @@ int *n, *report;
  * on the disk.  If not, ask if the disk should be repaired.
  */
 void chkmap(cmap, dmap, bit, blkno, nblk, type)
-bitchunk_t *cmap, *dmap;
+hm_t cmap, dmap;
 bit_nr bit;
 block_nr blkno;
 int nblk;
 char *type;
 {
-  register bitchunk_t *p = dmap, *q = cmap;
+  bitchunk_t *p, *q;
   int report = 1, nerr = 0;
-  int w = nblk * WORDS_PER_BLOCK;
+  int i, j;
+  unsigned long off;
 
   printf("Checking %s map\n", type);
   loadbitmap(dmap, blkno, nblk);
-  do {
-	if (*p != *q) chkword(*p, *q, bit, type, &nerr, &report);
-	p++;
-	q++;
-	bit += 8 * sizeof(bitchunk_t);
-  } while (--w > 0);
+  for (i = 0; i < nblk; i++) {
+	off = (unsigned long) i * BLOCK_SIZE;
+	p = (bitchunk_t *) hm_lock_range(dmap, off, BLOCK_SIZE);
+	q = (bitchunk_t *) hm_lock_range(cmap, off, BLOCK_SIZE);
+	if (p == 0 || q == 0) fatal("window");
+	for (j = 0; j < WORDS_PER_BLOCK; j++, bit += 8 * sizeof(bitchunk_t))
+		if (p[j] != q[j]) chkword(p[j], q[j], bit, type, &nerr, &report);
+	hm_unlock_range(cmap, off, BLOCK_SIZE);
+	hm_unlock_range(dmap, off, BLOCK_SIZE);
+  }
 
   if ((!repair || automatic) && !report) printf("etc. ");
   if (nerr > MAXPRINT || nerr > 10) printf("%d errors found. ", nerr);
@@ -750,7 +809,54 @@ void chkilist()
 /* Allocate an array to maintain the inode reference counts in. */
 void getcount()
 {
-  count = (nlink_t *) alloc((unsigned) (sb.s_ninodes + 1), sizeof(nlink_t));
+  if ((count = hm_calloc(((unsigned long) sb.s_ninodes + 1) * sizeof(nlink_t))) == 0)
+	fatal("out of memory");
+}
+
+/* The count of an inode, and the count changed by d. */
+int cnt_get(ino)
+unsigned ino;
+{
+  nlink_t *p;
+  unsigned long off = (unsigned long) ino * sizeof(nlink_t);
+  int r;
+
+  if ((p = (nlink_t *) hm_lock_range(count, off, sizeof(nlink_t))) == 0)
+	fatal("window");
+  r = *p;
+  hm_unlock_range(count, off, sizeof(nlink_t));
+  return(r);
+}
+
+void cnt_add(ino, d)
+unsigned ino;
+int d;
+{
+  nlink_t *p;
+  unsigned long off = (unsigned long) ino * sizeof(nlink_t);
+
+  if ((p = (nlink_t *) hm_lock_range(count, off, sizeof(nlink_t))) == 0)
+	fatal("window");
+  *p += d;
+  hm_unlock_range(count, off, sizeof(nlink_t));
+}
+
+/* The pool: the bitmaps and the counts, and the window to look at them. */
+void getpool()
+{
+  static int made;
+  unsigned long pages;
+  unsigned long ib = ((unsigned long) N_IMAP * BLOCK_SIZE + HM_PAGE - 1) / HM_PAGE;
+  unsigned long zb = ((unsigned long) N_ZMAP * BLOCK_SIZE + HM_PAGE - 1) / HM_PAGE;
+  unsigned long cb = (((unsigned long) sb.s_ninodes + 1) * sizeof(nlink_t)
+						+ HM_PAGE - 1) / HM_PAGE;
+
+
+  if (made) return;		/* a second device has to fit in the first one's pool */
+  pages = 3 * ib + 2 * zb + cb;
+  if (pages > 4096) fatal("file system too large");
+  if (hm_init(WINDOW_PAGES, (unsigned) pages) < 0) fatal("no pool");
+  made = 1;
 }
 
 /* The reference count for inode `ino' is wrong.  Ask if it should be adjusted. */
@@ -764,10 +870,10 @@ ino_t ino;
 	firstcnterr = 0;
   }
   devread(inoaddr(ino), (char *) &inode, INODE_SIZE);
-  count[ino] += inode.i_nlinks;	/* it was already subtracted; add it back */
-  printf("%5u %5u %5u", ino, (unsigned) inode.i_nlinks, count[ino]);
+  cnt_add(ino, inode.i_nlinks);	/* it was already subtracted; add it back */
+  printf("%5u %5u %5u", ino, (unsigned) inode.i_nlinks, (unsigned) cnt_get(ino));
   if (yes(" adjust")) {
-	if ((inode.i_nlinks = count[ino]) == 0) {
+	if ((inode.i_nlinks = cnt_get(ino)) == 0) {
 		fatal("internal error (counterror)");
 		inode.i_mode = I_NOT_ALLOC;
 		clrbit(imap, (bit_nr) ino);
@@ -788,14 +894,14 @@ void chkcount()
   register ino_t ino;
 
   for (ino = 1; ino <= sb.s_ninodes && ino != 0; ino++)
-	if (count[ino] != 0) counterror(ino);
+	if (cnt_get(ino) != 0) counterror(ino);
   if (!firstcnterr) printf("\n");
 }
 
 /* Deallocate the `count' array. */
 void freecount()
 {
-  free((char *) count);
+  hm_free(count);
 }
 
 /* Print the inode permission bits given by mode and shift. */
@@ -867,7 +973,7 @@ dir_struct *dp;
 {
   setbit(spec_imap, (bit_nr) dp->d_inum);
   if (yes(". remove entry")) {
-	count[dp->d_inum]--;
+	cnt_add(dp->d_inum, -1);
 	memset((void *) dp, 0, sizeof(dir_struct));
 	return(1);
   }
@@ -928,9 +1034,9 @@ dir_struct *dp;
 	setbit(spec_imap, (bit_nr) dp->d_inum);
 	setbit(spec_imap, (bit_nr) exp);
 	if (yes(". repair")) {
-		count[dp->d_inum]--;
+		cnt_add(dp->d_inum, -1);
 		dp->d_inum = exp;
-		count[exp]++;
+		cnt_add(exp, 1);
 		return(0);
 	}
   } else if (pos != (dp->d_name[1] ? DIR_ENTRY_SIZE : 0)) {
@@ -994,7 +1100,7 @@ dir_struct *dp;
 	}
 	return(1);
   }
-  if ((unsigned) count[dp->d_inum] == SHRT_MAX) {
+  if ((unsigned) cnt_get(dp->d_inum) == SHRT_MAX) {
 	printf("too many links to ino %u\n", dp->d_inum);
 	printf("discovered at entry '");
 	printname(dp->d_name);
@@ -1002,7 +1108,7 @@ dir_struct *dp;
 	printpath(0, 1);
 	if (Remove(dp)) return(0);
   }
-  count[dp->d_inum]++;
+  cnt_add(dp->d_inum, 1);
   if (strcmp(dp->d_name, ".") == 0) {
 	ftop->st_presence |= DOT;
 	return(chkdots(ino, pos, dp, ino));
@@ -1333,10 +1439,10 @@ d_inode *ip;
 	printf("link count too big in ");
 	printpath(1, 0);
 	printf("cnt = %u)\n", (unsigned) ip->i_nlinks);
-	count[ino] -= SHRT_MAX;
+	cnt_add(ino, -SHRT_MAX);
 	setbit(spec_imap, (bit_nr) ino);
   } else {
-	count[ino] -= (unsigned) ip->i_nlinks;
+	cnt_add(ino, -(int) (unsigned) ip->i_nlinks);
   }
   return chkmode(ino, ip);
 }
@@ -1364,7 +1470,7 @@ dir_struct *dp;
 	if (!visited && !chkinode(ino, &inode)) {
 		setbit(spec_imap, (bit_nr) ino);
 		if (yes("remove")) {
-			count[ino] += inode.i_nlinks - 1;
+			cnt_add(ino, inode.i_nlinks - 1);
 			clrbit(imap, (bit_nr) ino);
 			devwrite(inoaddr(ino), nullbuf, INODE_SIZE);
 			memset((void *) dp, 0, sizeof(dir_struct));

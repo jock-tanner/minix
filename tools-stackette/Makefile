@@ -152,7 +152,7 @@ $(foreach c,$(NETMULTI),$(eval $(call netlink,$(c))))
 
 $(addprefix $(W)/bin/,$(SIMPLE)): $(W)/bin/%: $(W)/simple/%.o $(LINKDEP)
 	@mkdir -p $(@D)
-	$(MKPROC) $@ $< -- --stack $(if $(filter cp,$*),0x6000,0x2000) $(if $(filter fsck,$*),--heap 0xc000) >/dev/null
+	$(MKPROC) $@ $< -- --stack $(if $(filter cp,$*),0x6000,0x2000) $(if $(filter fsck,$*),--heap 0x7000) >/dev/null
 
 inet: $(W)/inetovl/inet.aout
 $(W)/inetovl/inet.aout: $(inet_OBJ) $(inet_generic_OBJ) $(TOOLS)/mkinet.sh $(TOOLS)/ovlprep.py $(LINKDEP)
